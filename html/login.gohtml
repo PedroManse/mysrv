@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<link rel="stylesheet" type="text/css" href="/files/css/acc.css">
+	</head>
+	<body>
+		<span class="acc">
+			{{ if .acc.ok }}
+				<h2>Olá {{.acc.name}}</h2>
+			{{ else }}
+				<h2>Olá</h2>
+			{{ end }}
+		</span>
+		<form action="/login" method="POST">
+			<label id="email" for="email">Email: </label>
+			<input id="email" name="email" type="email"><br>
+
+			<label id="password" for="password">Password: </label>
+			<input id="password" name="password" type="password"><br>
+			<button>Login</button>
+		</form>
+		{{ if .logic.failed }}
+			<h3 style="color: red;"> {{ .logic.failReason }} </h3>
+		{{ end }}
+		<h3>Doesn't have an account? <a href="/register">Register!</a></h3>
+	</body>
+</html>
+

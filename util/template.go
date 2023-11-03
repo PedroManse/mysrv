@@ -7,9 +7,10 @@ import (
 
 type HttpWriter = http.ResponseWriter
 type HttpReq = *http.Request
+type Plugin = func(w HttpWriter, r HttpReq, info map[string]any) (render bool, addinfo any)
 type GOTMPlugin struct {
 	Name string
-	Plug func(w HttpWriter, r HttpReq, info map[string]any)any
+	Plug Plugin
 }
 
 /* example
@@ -27,31 +28,81 @@ index := TemplatePage(
 
 */
 
+type StaticFile struct {
+	Filename string
+}
+
 type TemplatedPage struct {
 	Template *template.Template
 	Info map[string]any
 	Plugins []GOTMPlugin
 }
 
+type LogicedPage struct {
+	Template *template.Template
+	Info map[string]any
+	Plugins []GOTMPlugin
+	Fn Plugin
+}
+
+func (s StaticFile) ServeHTTP (w HttpWriter, r HttpReq) {
+	http.ServeFile(w, r, s.Filename)
+}
+
 func TemplatePage(filename string, info map[string]any, plugins []GOTMPlugin) TemplatedPage {
 	if info == nil {
 		info = make(map[string]any)
 	}
-	if info == nil {
-		info = make(map[string]any)
-	}
-	tmpl, e := template.ParseFiles(filename)
-	if (e != nil) {panic(e)}
+
+	tmpl := template.Must(template.ParseFiles(filename))
+
 	return TemplatedPage{
 		tmpl, info, plugins,
 	}
 }
 
 func (s TemplatedPage) ServeHTTP (w HttpWriter, r HttpReq) {
+	var render = true
+	var prender bool
 	for _, plug := range s.Plugins {
-		s.Info[plug.Name] = plug.Plug(w, r, s.Info)
+		prender, s.Info[plug.Name] = plug.Plug(w, r, s.Info)
+		render = render&&prender
 	}
 
-	s.Template.Execute(w, s.Info)
+	if (render) {
+		s.Template.Execute(w, s.Info)
+	}
+}
+
+func (s LogicedPage) ServeHTTP (w HttpWriter, r HttpReq) {
+	var render = true
+	var prender bool
+	for _, plug := range s.Plugins {
+		prender, s.Info[plug.Name] = plug.Plug(w, r, s.Info)
+		render = render&&prender
+	}
+	prender, s.Info["logic"] = s.Fn(w, r, s.Info)
+	render = render&&prender
+
+	if (render) {
+		s.Template.Execute(w, s.Info)
+	}
+}
+
+func LogicPage(
+	filename string,
+	info map[string]any,
+	plugins []GOTMPlugin,
+	fn Plugin,
+) (LogicedPage) {
+	if info == nil {
+		info = make(map[string]any)
+	}
+
+	tmpl := template.Must(template.ParseFiles(filename))
+
+	return LogicedPage{
+		tmpl, info, plugins, fn,
+	}
 }
 

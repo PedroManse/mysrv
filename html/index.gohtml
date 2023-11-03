@@ -1,7 +1,18 @@
 <!DOCTYPE html>
 <html>
+	<head>
+		<link rel="stylesheet" type="text/css" href="/files/css/acc.css">
+	</head>
 	<body>
-		<h1>Olá!</h1>
+		<span class="acc">
+			{{ if .acc.ok }}
+				<h2>Olá {{.acc.name}}</h2>
+				<h3><a href="login">Change Account!</a></h3>
+			{{ else }}
+				<h2>Olá</h2>
+				<h3><a href="login">Login!</a></h3>
+			{{ end }}
+		</span>
 	</body>
 </html>
 

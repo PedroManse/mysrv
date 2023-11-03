@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+	<body>
+		{{ if .acc }}
+			<h1>Olá {{.acc.Name}}</h1>
+		{{ else }}
+			<h1>Olá</h1>
+		{{ end }}
+
+		<form action="/register" method="POST">
+			<label for="email" name="email">Email: </label>
+			<input  id="email" name="email" type="email"><br>
+			<label for="username" name="username">Username</label>
+			<input  id="username" name="username" type="text"><br>
+			<label for="password" name="password">Password</label>
+			<input  id="password" name="password" type="password"><br>
+			<button> Criar </button>
+		</form>
+
+		{{ if .logic.failed }}
+			<h2 class="error">{{ .logic.failReason }}</h2>
+			{{ if .logic.failEmail }}
+				<h2><a href="/login">Maybe Login</a></h2>
+			{{ end }}
+		{{ end }}
+	</body>
+</html>
+

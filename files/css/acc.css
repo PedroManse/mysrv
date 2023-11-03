@@ -1,0 +1,7 @@
+span.acc {
+	float: right;
+}
+
+span.acc > h2, span.acc > h3 {
+	display: inline-block;
+}
