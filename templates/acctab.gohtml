@@ -1,11 +1,17 @@
-{{ define "accico" }}
-	<span class="acc">
+<!DOCTYPE html>
+
+{{ define "acc nav" }}
+	<span style="float: right;">
 		{{ if .acc.ok }}
-			<h2>Olá {{.acc.name}}</h2>
-			<h3><a href="login">Change Account!</a></h3>
+		<p style="display: inline-block">
+			Olá {{.acc.name}}
+			<a href="login">Change Account!</a>
+		</p>
 		{{ else }}
-			<h2>Olá</h2>
-			<h3><a href="login">Login!</a></h3>
-		{{ end }}
+		<p style="display: inline-block">
+			Olá
+			<a href="login">Login!</a>
+			</p>
+		{{ end }} 
 	</span>
 {{ end }}

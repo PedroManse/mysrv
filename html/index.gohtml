@@ -1,18 +1,13 @@
 <!DOCTYPE html>
 <html>
 	<head>
-		<link rel="stylesheet" type="text/css" href="/files/css/acc.css">
 	</head>
 	<body>
-		<span class="acc">
-			{{ if .acc.ok }}
-				<h2>Olá {{.acc.name}}</h2>
-				<h3><a href="login">Change Account!</a></h3>
-			{{ else }}
-				<h2>Olá</h2>
-				<h3><a href="login">Login!</a></h3>
-			{{ end }}
-		</span>
+			{{ template "top nav init" }}
+			<li><a href="/users">Users</a></li>
+			<li><a href="/chat">Chat</a></li>
+			{{ template "acc nav" . }}
+			{{ template "top nav end" }}
 	</body>
 </html>
 

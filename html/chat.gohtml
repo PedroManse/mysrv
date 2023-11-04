@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<script>
+			name = {{ .acc.name }};
+			email = {{ .acc.email }};
+		</script>
+		<script src="/files/chat.js"></script>
+	</head>
+	<body style="background-color: #1F1F1F">
+		<div id="chatapp">
+			<div id="chatlog"> </div>
+			<input  id="msg" type="text" />
+			<button id="send" type="button">Send</button>
+		</div>
+	</body>
+</html>
+

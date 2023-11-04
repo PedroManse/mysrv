@@ -54,7 +54,11 @@ func TemplatePage(filename string, info map[string]any, plugins []GOTMPlugin) Te
 		info = make(map[string]any)
 	}
 
-	tmpl := template.Must(template.ParseFiles(filename))
+	tmpl := template.Must(
+		template.Must(
+			template.ParseFiles(filename),
+		).ParseGlob("templates/*.gohtml"),
+	)
 
 	return TemplatedPage{
 		tmpl, info, plugins,
@@ -99,7 +103,11 @@ func LogicPage(
 		info = make(map[string]any)
 	}
 
-	tmpl := template.Must(template.ParseFiles(filename))
+	tmpl := template.Must(
+		template.Must(
+			template.ParseFiles(filename),
+		).ParseGlob("templates/*.gohtml"),
+	)
 
 	return LogicedPage{
 		tmpl, info, plugins, fn,

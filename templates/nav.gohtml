@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+
+{{ define "top nav init" }}
+<style>
+#top-nav  {
+	background-color: darkgrey;
+	color: black;
+	display: inline-block;
+	width: 100%;
+	height: 40px;
+}
+
+#top-nav > ul {
+	display: inline;
+	width: 100%;
+}
+
+#top-nav > ul > li {
+	display: inline;
+	margin: auto;
+}
+#top-nav > ul > li > a {
+	color: black;
+	display: inline;
+}
+</style>
+
+<nav id="top-nav">
+	<ul id="top-nav">
+{{ end }}
+
+{{ define "top nav end" }}
+	</ul>
+	</nav>
+{{ end }}
