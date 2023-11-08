@@ -82,3 +82,12 @@ func accountsCopy(w HttpWriter, r HttpReq, info map[string]any) (render bool, re
 	return true, AccountsCopy()
 }
 var GOTM_accounts = GOTMPlugin{"accounts", accountsCopy}
+
+func must_account(w HttpWriter, r HttpReq, info map[string]any) (render bool, ret_r any) {
+	if (!info["acc"].(map[string]any)["ok"].(bool)) {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return false, nil
+	}
+	return true, nil
+}
+var GOTM_mustacc = GOTMPlugin{"", must_account}

@@ -48,8 +48,8 @@ function onMessage({action, from, msg}) {
 		case "user-msg":
 			id("chatlog").appendChild(createElement(
 				"div", {class:"chat-msg"}, [
-					createElement("h3", from),
-					createElement("p", msg),
+					createElement("h3", {style: {color: "white"}}, from+":"),
+					createElement("h3", {style: {color: "white"}}, msg),
 				]
 			))
 			break;
@@ -75,12 +75,12 @@ window.onload = () => {
 	//	}))
 	//}, 15000)
 
-	id("send").addEventListener("click", ()=>{
+	const sendmsg = ()=>{
 		console.log("SENT!", id("msg").value)
 		id("chatlog").appendChild(createElement(
 			"div", {class:"chat-msg"}, [
-				createElement("h3", name),
-				createElement("p", id("msg").value),
+				createElement("h3", {style: {color: "white"}}, name+":"),
+				createElement("h3", {style: {color: "white"}}, id("msg").value),
 			]
 		))
 		socket.send(JSON.stringify({
@@ -89,6 +89,13 @@ window.onload = () => {
 			hash: userHash,
 			info:{msg: id("msg").value},
 		}))
+	}
+	id("send").addEventListener("click", sendmsg)
+	id("msg").addEventListener("keydown", ({key})=>{
+		if (key === "Enter") {
+			sendmsg();
+			id("msg").value = "";
+		}
 	})
 }
 

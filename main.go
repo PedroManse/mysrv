@@ -86,17 +86,22 @@ var ( // templated pages
 		"html/users.gohtml", nil,
 		[]GOTMPlugin{GOTM_account, GOTM_accounts, GOTM_log},
 	)
-	chat = LogicPage(
+	// must be logged in plugin
+	chat = TemplatePage(
 		"html/chat.gohtml", nil,
-		[]GOTMPlugin{GOTM_account, GOTM_log},
-		func (w HttpWriter, r HttpReq, info map[string]any) (bool, any) {
-			if (!info["acc"].(map[string]any)["ok"].(bool)) {
-				http.Redirect(w, r, "/login", http.StatusSeeOther)
-				return false, nil
-			}
-			return true, nil
-		},
+		[]GOTMPlugin{GOTM_account, GOTM_mustacc, GOTM_log},
 	)
+	//chat = LogicPage(
+	//	"html/chat.gohtml", nil,
+	//	[]GOTMPlugin{GOTM_account, GOTM_log},
+	//	func (w HttpWriter, r HttpReq, info map[string]any) (bool, any) {
+	//		if (!info["acc"].(map[string]any)["ok"].(bool)) {
+	//			http.Redirect(w, r, "/login", http.StatusSeeOther)
+	//			return false, nil
+	//		}
+	//		return true, nil
+	//	},
+	//)
 )
 
 func main() {
