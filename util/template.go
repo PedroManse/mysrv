@@ -72,7 +72,6 @@ func (s TemplatedPage) ServeHTTP (w HttpWriter, r HttpReq) {
 		prender, s.Info[plug.Name] = plug.Plug(w, r, s.Info)
 		render = render&&prender
 	}
-
 	if (render) {
 		s.Template.Execute(w, s.Info)
 	}

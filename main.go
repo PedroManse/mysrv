@@ -71,11 +71,21 @@ func LoginHandler(w HttpWriter, r HttpReq, info map[string]any) (render bool, re
 var ( // templated pages
 	index = LogicPage(
 		"html/index.gohtml", nil,
-		[]GOTMPlugin{GOTM_account, GOTM_log},
+		[]GOTMPlugin{GOTM_account},
 		func (w HttpWriter, r HttpReq, info map[string]any) (bool, any) {
 			if (r.URL.Path != "/") { missing.ServeHTTP(w, r) }
 			return r.URL.Path == "/", nil
 		},
+	)
+	register = LogicPage(
+		"html/register.gohtml", nil,
+		[]GOTMPlugin{GOTM_account},
+		CreateHandler,
+	)
+	login = LogicPage(
+		"html/login.gohtml", nil,
+		[]GOTMPlugin{GOTM_account},
+		LoginHandler,
 	)
 
 	missing = TemplatePage(
@@ -84,46 +94,37 @@ var ( // templated pages
 	)
 	users = TemplatePage(
 		"html/users.gohtml", nil,
-		[]GOTMPlugin{GOTM_account, GOTM_accounts, GOTM_log},
+		[]GOTMPlugin{GOTM_account, GOTM_accounts},
 	)
 	// must be logged in plugin
 	chat = TemplatePage(
 		"html/chat.gohtml", nil,
-		[]GOTMPlugin{GOTM_account, GOTM_mustacc, GOTM_log},
+		[]GOTMPlugin{GOTM_account, GOTM_mustacc},
 	)
-	//chat = LogicPage(
-	//	"html/chat.gohtml", nil,
-	//	[]GOTMPlugin{GOTM_account, GOTM_log},
-	//	func (w HttpWriter, r HttpReq, info map[string]any) (bool, any) {
-	//		if (!info["acc"].(map[string]any)["ok"].(bool)) {
-	//			http.Redirect(w, r, "/login", http.StatusSeeOther)
-	//			return false, nil
-	//		}
-	//		return true, nil
-	//	},
-	//)
+	ecb = TemplatePage(
+		"html/ecb.gohtml", nil,
+		[]GOTMPlugin{GOTM_account, GOTM_mustacc},
+	)
 )
 
 func main() {
 	InitSQL("sqlite3.db")
 
+	// site-wide service
 	http.Handle("/", index)
+	http.Handle("/login", login)
+	http.Handle("/register", register)
 	http.Handle("/favicon.ico", StaticFile{"./files/dice.ico"})
+	http.Handle("/files/", http.StripPrefix("/files", http.FileServer(http.Dir("./files/"))))
+
+	// front-ends
 	http.Handle("/users", users)
 	http.Handle("/chat", chat)
+	http.Handle("/ecb", ecb)
 
-	http.Handle("/register", LogicPage(
-		"html/register.gohtml", nil,
-		[]GOTMPlugin{GOTM_account, GOTM_log},
-		CreateHandler,
-	))
-	http.Handle("/login", LogicPage(
-		"html/login.gohtml", nil,
-		[]GOTMPlugin{GOTM_account, GOTM_log},
-		LoginHandler,
-	))
-	http.Handle("/files/", http.StripPrefix("/files", http.FileServer(http.Dir("./files/"))))
+	// back-ends
 	http.Handle("/wschat", service.ChatServer)
+	http.HandleFunc("/fsecb", service.ECBHandler)
 
 	fmt.Println("running")
 	http.ListenAndServe("0.0.0.0:8080", nil)

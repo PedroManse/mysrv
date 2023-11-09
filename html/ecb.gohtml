@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<script src="https://unpkg.com/htmx.org@1.9.8"></script>
+		<link href="/files/css/ecb.css" rel="stylesheet" type="text/css">
+	</head>
+	<body>
+			{{ template "nav" . }}
+			<div id="content">
+				<form
+					hx-get="/fsecb"
+					hx-target="#pastehere"
+					hx-swap="innerHTML"
+				>
+					<label for="pastename" >Paste Name:</label>
+					<input name="pastename" id="pastename" type="text">
+					<button id="search">Get Paste</button>
+				</form>
+
+				<form
+					hx-include="#pastename"
+					hx-post="/fsecb"
+					hx-target="#pastehere"
+					hx-swap="innerHTML"
+				>
+					<label for="pastebody">Paste Content:</label>
+					<textarea name="pastebody" id="pastebody"></textarea>
+					<button>Create Paste</button>
+				</form>
+				<div id="pastehere">
+				</div>
+		</div>
+	</body>
+</html>

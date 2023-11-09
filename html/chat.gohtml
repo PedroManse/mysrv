@@ -5,9 +5,11 @@
 			name = {{ .acc.name }};
 			email = {{ .acc.email }};
 		</script>
-		<script src="/files/chat.js"></script>
+		<script src="/files/js/chat.js"></script>
+		<link href="/files/css/chat.css" rel="stylesheet" type="text/css">
 	</head>
 	<body style="background-color: #1F1F1F">
+		{{ template "nav" . }}
 		<div id="chatapp">
 			<input  id="msg" type="text" />
 			<button id="send" type="button">Send</button>

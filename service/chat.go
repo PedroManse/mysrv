@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"encoding/json"
 	"time"
-	"hash/fnv"
+	"mysrv/util"
 )
 
 type chatacc struct {
 	id int
-	hash HashResult
+	hash util.HashResult
 	name string
 	email string
 	connected bool
@@ -26,9 +26,7 @@ type chatmsg struct {
 var chatUsers = make(map[*websocket.Conn]*chatacc)
 
 func accExecute(ws *websocket.Conn, msg chatmsg) {
-	fmt.Printf("%+v\n", msg)
 	if (msg.Action == "set-username") {
-		fmt.Println(msg.Info)
 		chatUsers[ws].email = msg.Info["email"].(string)
 		chatUsers[ws].name = msg.Info["name"].(string)
 	} else if (msg.Action == "message") {
@@ -65,7 +63,7 @@ func accReadLoop(ws *websocket.Conn) error {
 // Echo the data received on the WebSocket.
 func chatServer(ws *websocket.Conn) {
 	id := len(chatUsers)
-	hash := Hash(time.Now().String())
+	hash := util.Hash(time.Now().String())
 	chatUsers[ws] = &chatacc{id, hash, "", "", true}
 
 	dt, e := json.Marshal(map[string]any{"id":id, "hash":hash})
@@ -110,11 +108,4 @@ func broadcast(info map[string]any, sender *websocket.Conn) {
 
 var ChatServer = websocket.Handler(chatServer)
 
-type HashResult = uint32
-const HashBitLen = 32
-func Hash(s string) HashResult {
-	h := fnv.New32a()
-	h.Write([]byte(s))
-	return h.Sum32()+uint32(90749*len(s))
-}
 

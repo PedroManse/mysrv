@@ -2,11 +2,13 @@
 
 {{ define "top nav init" }}
 <style>
+
 #top-nav  {
 	background-color: darkgrey;
 	color: black;
 	display: inline-block;
-	width: 100%;
+	padding-left: 1%;
+	width: 99%;
 	height: 40px;
 }
 
@@ -16,13 +18,17 @@
 }
 
 #top-nav > ul > li {
+	padding-left: 20px;
 	display: inline;
 	margin: auto;
 }
+
 #top-nav > ul > li > a {
+	font-size: 20px;
 	color: black;
 	display: inline;
 }
+
 </style>
 
 <nav id="top-nav">
@@ -32,4 +38,46 @@
 {{ define "top nav end" }}
 	</ul>
 	</nav>
+{{ end }}
+
+{{ define "nav acc" }}
+	<span style="float: right;">
+		{{ if .acc.ok }}
+		<p style="display: inline-block">
+			Olá {{.acc.name}}
+			<a href="login">Change Account!</a>
+		</p>
+		{{ else }}
+		<p style="display: inline-block">
+			Olá
+			<a href="login">Login!</a>
+			</p>
+		{{ end }} 
+	</span>
+{{ end }}
+
+{{ define "nav chat" }}
+	<li><a href="/chat">Chat</a></li>
+{{ end }}
+
+{{ define "nav users" }}
+	<li><a href="/users">Users</a></li>
+{{ end }}
+
+{{ define "nav ecb" }}
+	<li><a href="/ecb">Easy ClipBoard</a></li>
+{{ end }}
+
+{{ define "nav index" }}
+	<li><a href="/">Home</a></li>
+{{ end }}
+
+{{ define "nav" }}
+		{{ template "top nav init" }}
+		{{ template "nav index" . }}
+		{{ template "nav chat" . }}
+		{{ template "nav users" . }}
+		{{ template "nav ecb" . }}
+		{{ template "nav acc" . }}
+		{{ template "top nav end" }}
 {{ end }}
