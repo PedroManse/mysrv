@@ -2,7 +2,6 @@ package service
 
 import (
 	"golang.org/x/net/websocket"
-	"fmt"
 	"encoding/json"
 	"time"
 	"mysrv/util"
@@ -40,6 +39,7 @@ func accExecute(ws *websocket.Conn, msg chatmsg) {
 	}
 }
 
+// read json, execute command
 func accParse(ws *websocket.Conn, read []byte) (e error) {
 	var msg chatmsg
 	e = json.Unmarshal(read, &msg)
@@ -50,13 +50,14 @@ func accParse(ws *websocket.Conn, read []byte) (e error) {
 	return nil
 }
 
+// ws listening loop
 func accReadLoop(ws *websocket.Conn) error {
 	buf := make([]byte, 1024)
 	for {
 		n, err := ws.Read(buf)
 		if (err != nil) {return nil} //EOF
 		err = accParse(ws, buf[:n])
-		if ( err != nil) {return err}
+		if ( err != nil) {return err} // H400
 	}
 }
 
@@ -80,19 +81,6 @@ func chatServer(ws *websocket.Conn) {
 		"email": chatUsers[ws].email,
 		"msg": chatUsers[ws].name+" disconnected",
 	}, nil)
-	//dt, e = json.Marshal(map[string]any{
-	//	"action": "server-msg",
-	//	"from": chatUsers[ws].name,
-	//	"email": chatUsers[ws].email,
-	//	"msg": chatUsers[ws].name+" disconnected",
-	//})
-	//if (e != nil) {panic(e)}
-
-	//for otherws, acc := range chatUsers {
-	//	if (acc.connected) {
-	//		otherws.Write(dt)
-	//	}
-	//}
 }
 
 func broadcast(info map[string]any, sender *websocket.Conn) {
