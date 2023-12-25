@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<script src="/files/js/pdb.js"></script>
+		<link href="/files/css/pdb.css" rel="stylesheet" type="text/css">
+	</head>
+	<body>
+		{{ template "nav" . }}
+		<table>
+			<tbody>
+				<tr class="tool-row">
+					<td scope="none">
+						<button type="button" class="rem opc0">
+						</button>
+					</td>
+					{{ range $i, $colindex := index .pdb 0 }}
+						<th scope="col">
+							<button type="button" class="rem rem-col" col="{{$i}}">
+								X
+							</button>
+						</th>
+					{{ end }}
+					<th scope="col">
+						<button type="button" class="rem" id="add-col">
+							+
+						</button>
+					</th>
+				</tr>
+				{{ range $rowindex, $row := .pdb }}
+					<tr class="row">
+						<th scope="row">
+							<button type="button" class="rem rem-row" row="{{$rowindex}}">
+								X
+							</button>
+						</th>
+						{{ range $colindex, $item := $row }}
+							<td>
+								<input
+									row="{{$rowindex}}" col="{{$colindex}}" class="slot" type="text" value="{{$item}}"
+								/>
+							</td>
+						{{ end }}
+					</tr>
+				{{ end }}
+				<tr>
+					<th scope="row">
+						<button type="button" class="rem" id="add-row">
+							+
+						</button>
+					</th>
+				</tr>
+			</tbody>
+		</table>
+	</body>
+</html>

@@ -13,13 +13,40 @@ type SQLScript struct {
 	Name string
 	Code string
 }
-var SQL_INIT_SCRIPTS = []SQLScript{}
+var init_scripts = []SQLScript{}
+func SQLInitScript(Name string, Code string) {
+	init_scripts = append( init_scripts, SQLScript{Name, Code})
+}
+
+func SQLGetSingle(Name, Query string, vars... any) ( info *sql.Row ) {
+	return db.QueryRow(Query, vars...)
+}
+
+func SQLGet(Name, Query string, vars... any) ( info *sql.Rows, err error) {
+	info, err = db.Query(Query, vars...)
+	if (err != nil) {
+		FLog(sqlArea, "Failed executing script [%s]: %v\n%s with %+v\n", Name, err, Query, vars)
+	}
+	return
+}
+
+func SQLDo(Name, Query string, vars... any) ( info sql.Result, err error) {
+	info, err = db.Exec(Query, vars...)
+	if (err != nil) {
+		FLog(sqlArea, "Failed executing script [%s]: %v\n%s with %+v\n", Name, err, Query, vars)
+	}
+	return
+}
 
 type SQLFunc struct {
 	Name string
 	Func func(*sql.DB) error
 }
-var SQL_INIT_FUNCS = []SQLFunc{}
+var init_funcs = []SQLFunc{}
+
+func SQLInitFunc(Name string, Func func(*sql.DB) error) {
+	init_funcs = append( init_funcs, SQLFunc{Name, Func})
+}
 
 func InitSQL(dbfile string) error {
 	var err error
@@ -30,7 +57,7 @@ func InitSQL(dbfile string) error {
 	}
 	FLog(sqlArea, "Successefully openned %q with sqlite3 drivers\n", dbfile)
 
-	for _, script :=range SQL_INIT_SCRIPTS {
+	for _, script :=range init_scripts {
 		_, err = db.Exec(script.Code)
 
 		if (err != nil) {
@@ -40,7 +67,7 @@ func InitSQL(dbfile string) error {
 		FLog(sqlArea, "script [%s] executed successefully\n", script.Name)
 	}
 
-	for _, fnc :=range SQL_INIT_FUNCS {
+	for _, fnc :=range init_funcs {
 		err = fnc.Func(db)
 
 		if (err != nil) {

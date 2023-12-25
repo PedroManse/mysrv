@@ -106,15 +106,11 @@ func loadAccounts(db *sql.DB) error {
 }
 
 func init() {
-	SQL_INIT_SCRIPTS = append(SQL_INIT_SCRIPTS, SQLScript{
-		"accounts",
+	SQLInitScript( "accounts",
 `CREATE TABLE IF NOT EXISTS accounts (
 	email TEXT NOT NULL PRIMARY KEY,
 	name TEXT NOT NULL,
 	hash INT NOT NULL
-);`})
-	SQL_INIT_FUNCS = append(SQL_INIT_FUNCS, SQLFunc{
-		"accounts",
-		loadAccounts,
-	})
+);`)
+	SQLInitFunc( "accounts", loadAccounts )
 }

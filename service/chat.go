@@ -2,7 +2,6 @@ package service
 
 import (
 	"golang.org/x/net/websocket"
-	"fmt"
 	"encoding/json"
 	"time"
 	"mysrv/util"
@@ -43,9 +42,7 @@ func accExecute(ws *websocket.Conn, msg chatmsg) {
 func accParse(ws *websocket.Conn, read []byte) (e error) {
 	var msg chatmsg
 	e = json.Unmarshal(read, &msg)
-	if (e != nil) {
-		return e
-	}
+	if (e != nil) { return e }
 	accExecute(ws, msg)
 	return nil
 }

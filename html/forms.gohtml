@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<link href="/files/css/forms.css" rel="stylesheet" type="text/css">
+		<script src="/files/js/forms.js"></script>
+	</head>
+	{{ template "nav" . }}
+	<div id="content"> </div>
+	<div id="footer">
+		<input placeholder="question" type="text" id="question-text">
+
+		<select value="not selected" id="question-type">
+			<option value="not selected" selected="selected" style="display: none" disabled>Question Type</option>
+			<option value="text">Text</option>
+			<option value="select">Selection</option>
+		</select>
+		<button id="question-creator" type="button">Add</button>
+
+	</div>
+	<body></body>
+</html>

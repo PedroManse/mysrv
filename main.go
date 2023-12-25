@@ -105,6 +105,14 @@ var ( // templated pages
 		"html/ecb.gohtml", nil,
 		[]GOTMPlugin{GOTM_account, GOTM_mustacc},
 	)
+	pdb = TemplatePage(
+		"html/pdb.gohtml", nil,
+		[]GOTMPlugin{GOTM_account, GOTM_mustacc, service.GOTM_pdbcopy},
+	)
+	forms = TemplatePage(
+		"html/forms.gohtml", nil,
+		[]GOTMPlugin{GOTM_account, GOTM_mustacc},
+	)
 )
 
 func main() {
@@ -121,11 +129,14 @@ func main() {
 	http.Handle("/users", users)
 	http.Handle("/chat", chat)
 	http.Handle("/ecb", ecb)
+	http.Handle("/pdb", pdb)
+	http.Handle("/forms", forms)
 
 	// back-ends
 	http.Handle("/wschat", service.ChatServer)
 	http.HandleFunc("/fsecb", service.ECBHandler)
+	http.HandleFunc("/fspdb", service.PDBHandler)
 
-	fmt.Println("running")
+	fmt.Println("Running")
 	http.ListenAndServe("0.0.0.0:8080", nil)
 }

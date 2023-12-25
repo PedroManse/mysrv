@@ -8,6 +8,10 @@ import (
 type HttpWriter = http.ResponseWriter
 type HttpReq = *http.Request
 type Plugin = func(w HttpWriter, r HttpReq, info map[string]any) (render bool, addinfo any)
+// add "terminator" flag to plugin
+// GOTM_mustacc is added as a guard, to relieve the
+// : programmer of the duty to check if the user is logged in
+// : plugins after GOTM_mustacc shoudln't be executed
 type GOTMPlugin struct {
 	Name string
 	Plug Plugin
@@ -73,7 +77,10 @@ func (s TemplatedPage) ServeHTTP (w HttpWriter, r HttpReq) {
 		render = render&&prender
 	}
 	if (render) {
-		s.Template.Execute(w, s.Info)
+		e := s.Template.Execute(w, s.Info)
+		if (e != nil) {
+			panic(e)
+		}
 	}
 }
 
@@ -88,7 +95,10 @@ func (s LogicedPage) ServeHTTP (w HttpWriter, r HttpReq) {
 	render = render&&prender
 
 	if (render) {
-		s.Template.Execute(w, s.Info)
+		e := s.Template.Execute(w, s.Info)
+		if (e != nil) {
+			panic(e)
+		}
 	}
 }
 

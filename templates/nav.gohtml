@@ -52,7 +52,7 @@
 			Olá
 			<a href="login">Login!</a>
 			</p>
-		{{ end }} 
+		{{ end }}
 	</span>
 {{ end }}
 
@@ -68,8 +68,16 @@
 	<li><a href="/ecb">Easy ClipBoard</a></li>
 {{ end }}
 
+{{ define "nav forms" }}
+	<li><a href="/forms">Forms</a></li>
+{{ end }}
+
 {{ define "nav index" }}
 	<li><a href="/">Home</a></li>
+{{ end }}
+
+{{ define "nav pdb" }}
+	<li><a href="/pdb">Personal DB</a></li>
 {{ end }}
 
 {{ define "nav" }}
@@ -78,6 +86,8 @@
 		{{ template "nav chat" . }}
 		{{ template "nav users" . }}
 		{{ template "nav ecb" . }}
+		{{ template "nav forms" . }}
+		{{ template "nav pdb" . }}
 		{{ template "nav acc" . }}
 		{{ template "top nav end" }}
 {{ end }}
