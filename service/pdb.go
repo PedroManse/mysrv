@@ -54,8 +54,8 @@ ON CONFLICT DO UPDATE SET data=?;
 
 func pdbSetBatch(email string, pdbSets []PDBSlot) {
 	// TODO batch sql command
-	for set := range pdbSets {
-		pdbSet(email,  set.row, set.col, set.data)
+	for _, set := range pdbSets {
+		pdbSet(email,  set.Row, set.Col, set.Data)
 	}
 }
 
