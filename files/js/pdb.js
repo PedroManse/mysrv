@@ -32,7 +32,6 @@ function remCol({target}) {
 		})
 	}).then(a=>{
 		location.reload()
-		console.log(a)
 		//target.parentElement.remove()
 		//TODO update other rows/cols
 	})
@@ -46,8 +45,6 @@ function remRow({target}) {
 		})
 	}).then(a=>{
 		location.reload()
-		console.log(a)
-		target.parentElement.parentElement.remove()
 		//TODO update other rows/cols
 	})
 }
