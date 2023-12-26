@@ -85,3 +85,8 @@ func FLog(selectedAreas int, format string, stuff... any) {
 	fmt.Printf("[%v] %s: %s", fmttime, preamble, text)
 }
 
+//TODO: get new Flog system from pedromanse/timecard
+var FLOG_ERROR int
+func init() {
+	FLOG_ERROR = NewArea("ERROR")
+}

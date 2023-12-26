@@ -2,6 +2,7 @@ package service
 
 import (
 	"mysrv/util"
+	"fmt"
 	"errors"
 	"net/http"
 	"database/sql"
@@ -15,8 +16,8 @@ type HttpReq = *http.Request
 var pdbSQLScript = `
 CREATE TABLE IF NOT EXISTS pdb_info (
 	email TEXT NOT NULL PRIMARY KEY,
-	rowcount INT NOT NULL DEFAULT 1,
-	colcount INT NOT NULL DEFAULT 1,
+	rowcount INT DEFAULT 1,
+	colcount INT DEFAULT 1,
 	FOREIGN KEY(email) REFERENCES accounts(email)
 );
 
@@ -32,6 +33,26 @@ CREATE TABLE IF NOT EXISTS pdb_data (
 
 func init() {
 	util.SQLInitScript( "pdb", pdbSQLScript )
+}
+
+func pdbRemoveRow(email, row string) (err error) {
+	fmt.Println(row)
+	_, err = util.SQLDo("pdb remove row", `
+	DELETE FROM pdb_data WHERE email=? AND row=?;
+	UPDATE OR REPLACE pdb_data SET row=row-1 WHERE (email=? AND row>?);
+	UPDATE pdb_info SET rowcount=rowcount-1 WHERE email=?;
+	`, email, row, email, row, email)
+	return
+}
+
+func pdbRemoveCol(email, col string) (err error) {
+	fmt.Println(col)
+	_, err = util.SQLDo("pdb remove col", `
+	DELETE FROM pdb_data WHERE email=? AND col=?;
+	UPDATE OR REPLACE pdb_data SET col=col-1 WHERE (email=? AND col>?);
+	UPDATE pdb_info SET colcount=colcount-1 WHERE email=?;
+	`, email, col, email, col, email)
+	return
 }
 
 func pdbSetSize(email, row, col string) {
@@ -53,7 +74,10 @@ ON CONFLICT DO UPDATE SET data=?;
 }
 
 func pdbSetBatch(email string, pdbSets []PDBSlot) {
-	// TODO batch sql command
+// INSERT INTO pdb_data (email, row, col, data) VALUES
+// (?, ?, ?, ?) ON CONFLICT DO UPDATE SET data=? * len(pdbSets)
+// ;
+	// TODO batch sql command (somehow set the ON CONFLICT for each insert)
 	for _, set := range pdbSets {
 		pdbSet(email,  set.Row, set.Col, set.Data)
 	}
@@ -69,7 +93,7 @@ func pdbRead(email string) [][]string {
 		if errors.Is(err, sql.ErrNoRows) {
 			rowcount = 1
 			colcount = 1
-			util.FLog(1, "creating pdb entry for %s\n", email)
+			util.FLog(util.SQLArea, "creating pdb entry for %s\n", email)
 			_, err = util.SQLDo("create pdb info entry", "INSERT INTO pdb_info (email) VALUES (?)", email)
 			if (err != nil) {panic(err)}
 		} else {
@@ -130,10 +154,10 @@ func PDBHandler(w HttpWriter, r HttpReq) {
 	if (!ok) {return}
 	email := accinfo.(map[string]any)["email"].(string)
 
+	read, e := io.ReadAll(r.Body)
+	if (e != nil) { panic ( e ) }
 	switch (r.Method) {
 	case "POST":
-		read, e := io.ReadAll(r.Body)
-		if (e != nil) { panic ( e ) }
 		var setBatch = r.URL.Query().Get("batch")=="true"
 		if (setBatch) {
 			var pdbupdate []PDBSlot
@@ -147,12 +171,29 @@ func PDBHandler(w HttpWriter, r HttpReq) {
 			pdbSet(email, pdbupdate.Row, pdbupdate.Col, pdbupdate.Data)
 		}
 	case "PATCH":
-		read, e := io.ReadAll(r.Body)
-		if (e != nil) { panic ( e ) }
 		var pdbupdate PDBSize
 		e = json.Unmarshal(read, &pdbupdate)
 		if (e != nil) { panic ( e ) }
-		//pdbSetSize(email, pdbupdate.Row, pdbupdate.Col)
+		pdbSetSize(email, pdbupdate.Row, pdbupdate.Col)
+	case "DELETE":
+		var pdbupdate PDBSize
+		e = json.Unmarshal(read, &pdbupdate)
+		if (e != nil) { panic ( e ) }
+		var e error
+
+		if (pdbupdate.Col != "" && pdbupdate.Row == "") {
+			e = pdbRemoveCol(email,pdbupdate.Col)
+		} else if (pdbupdate.Row != "" && pdbupdate.Col == "") {
+			e = pdbRemoveRow(email, pdbupdate.Row)
+		} else {
+			util.FLog(util.FLOG_ERROR, "User [%s] tried to remove row and column or neither\n", email)
+			w.WriteHeader(http.StatusBadRequest)
+			panic("User tried to remove row and column or neither")
+		}
+		if (e != nil) {
+			panic(e)
+		}
+
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}

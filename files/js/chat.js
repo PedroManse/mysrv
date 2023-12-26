@@ -1,5 +1,6 @@
 "use strict";
 
+const WS_SERVER = `ws://${location.host}/wschat`
 const id = document.getElementById.bind(document)
 
 let socket = null;
@@ -8,7 +9,7 @@ let userHash = null;
 
 // idea, Package Connect to make use other WS services
 function Connect(onmsg) {
-	socket = new WebSocket("ws://192.168.15.58:8080/wschat");
+	socket = new WebSocket(WS_SERVER);
 
 	socket.addEventListener("close", (event) => {
 		console.log(event);

@@ -16,7 +16,7 @@ function prepareSlot(slot) {
 		fetch("/fspdb", {
 			method: "POST",
 			body: JSON.stringify({row, col, data}),
-		}).then(a=>console.log(a))
+		})
 	})
 }
 
@@ -24,16 +24,32 @@ const colCount = () => Number(query("tr").nextElementSibling.lastElementChild.ch
 const rowCount = () => queryAll("input.slot").length/colCount()
 const asize = (count) => Array(count).fill(undefined)
 
+function remCol({target}) {
+	fetch("/fspdb", {
+		method: "DELETE",
+		body: JSON.stringify({
+			col:target.getAttribute("col")
+		})
+	}).then(a=>{
+		location.reload()
+		console.log(a)
+		//target.parentElement.remove()
+		//TODO update other rows/cols
+	})
+}
+
 function remRow({target}) {
-	//fetch("/fspdb", {
-	//	method: "PATCH",
-	//	body: JSON.stringify({
-	//		col: colCount().toString(),
-	//		row: (rowCount()-1).toString(),
-	//	})
-	//}).then(a=>{
-	//	target.parentElement.remove()
-	//})
+	fetch("/fspdb", {
+		method: "DELETE",
+		body: JSON.stringify({
+			row:target.getAttribute("row")
+		})
+	}).then(a=>{
+		location.reload()
+		console.log(a)
+		target.parentElement.parentElement.remove()
+		//TODO update other rows/cols
+	})
 }
 
 function addRow() {
@@ -47,7 +63,8 @@ function addRow() {
 		const rrow = el("button", "X", {
 			class: "rem rem-row", type:"button", row: rowCount().toString()
 		});
-		rrow.addEventListener("click", remRow);
+		prepareRow(rrow);
+		//rrow.addEventListener("click", remRow);
 		const newrow = el("tr", {class:"row"}, [
 			rrow,
 			...asize(colCount()).map((_, i)=>
@@ -60,15 +77,12 @@ function addRow() {
 				)])
 			)
 		]);
+		console.log(cqueryAll(newrow, "input.slot"))
 		cqueryAll(newrow, "input.slot").forEach(prepareSlot);
 		query("tbody").insertBefore(
 			newrow, query("tbody").lastElementChild
 		)
 	})
-}
-
-function remCol({target}) {
-	console.log(target)
 }
 
 function addCol() {
@@ -100,10 +114,18 @@ function addCol() {
 	})
 }
 
+function prepareRow(row) {
+	row.addEventListener("click", remRow);
+}
+
+function prepareCol(col) {
+	col.addEventListener("click", remCol);
+}
+
 window.onload = () => {
 	queryAll("input.slot").forEach(prepareSlot);
-	queryAll("button.rem-row");
-	queryAll("button.rem-col");
+	queryAll("button.rem-row").forEach(prepareRow);
+	queryAll("button.rem-col").forEach(prepareCol);
 	id("add-col").addEventListener("click", addCol);
 	id("add-row").addEventListener("click", addRow);
 }
