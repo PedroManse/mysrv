@@ -2,6 +2,7 @@ package util
 
 import (
 	"hash/fnv"
+	"sync"
 )
 
 type HashResult = uint32
@@ -11,3 +12,68 @@ func Hash(s string) HashResult {
 	h.Write([]byte(s))
 	return h.Sum32()+uint32(90749*len(s))
 }
+
+type SyncMap[Key comparable, Value any] struct {
+	MAP map[Key]Value
+	MUTEX sync.Mutex
+}
+
+func (S *SyncMap[K, V]) Init() {
+	S.MAP = make(map[K]V)
+	S.MUTEX = sync.Mutex{}
+}
+
+func (S *SyncMap[K, V]) Set(key K, value V) {
+	S.MUTEX.Lock()
+	defer S.MUTEX.Unlock()
+	S.MAP[key] = value
+}
+
+func (S *SyncMap[K, V]) Get(key K) (v V, has bool) {
+	S.MUTEX.Lock()
+	defer S.MUTEX.Unlock()
+	v, has = S.MAP[key]
+	return
+}
+
+type _Tuple[K comparable, V any] struct {
+	Key K
+	Value V
+}
+
+func (S *SyncMap[K, V]) Iter() <-chan _Tuple[K, V] {
+	S.MUTEX.Lock()
+	defer S.MUTEX.Unlock()
+
+	tchan := make(chan _Tuple[K, V], len(S.MAP))
+	for k,v := range S.MAP {
+		tchan<-_Tuple[K, V]{k, v}
+	}
+	close(tchan)
+	return tchan
+}
+
+func (S *SyncMap[K, V]) IterValues() <-chan V {
+	S.MUTEX.Lock()
+	defer S.MUTEX.Unlock()
+
+	tchan := make(chan V, len(S.MAP))
+	for _,v := range S.MAP {
+		tchan<-v
+	}
+	close(tchan)
+	return tchan
+}
+
+func (S *SyncMap[K, V]) IterKeys() <-chan K {
+	S.MUTEX.Lock()
+	defer S.MUTEX.Unlock()
+
+	tchan := make(chan K, len(S.MAP))
+	for k := range S.MAP {
+		tchan<-k
+	}
+	close(tchan)
+	return tchan
+}
+

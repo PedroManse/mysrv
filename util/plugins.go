@@ -50,6 +50,7 @@ func acc(w HttpWriter, r HttpReq, info map[string]any) (render bool, ret_r any) 
 
 	ret["name"] = acc.Name
 	ret["email"] = acc.Email
+	ret["id"] = acc.ID
 	ret["ok"] = true
 	return
 }
