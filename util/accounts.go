@@ -73,15 +73,9 @@ func (A *Account)SendCookie(w HttpWriter) {
 
 func GetAccount(email string) (acc *Account, exists bool) {
 	return EmailToAccount.Get(email)
-	//accLock.Lock()
-	//acc, exists = Accounts[email]
-	//accLock.Unlock()
-	//return
 }
 
 func NewAccount(email, name, password string) *Account {
-	//accLock.Lock()
-	//defer accLock.Unlock()
 	_, used := EmailToAccount.Get(email)
 	if (used) { return nil }
 
@@ -101,6 +95,8 @@ func NewAccount(email, name, password string) *Account {
 	EmailToAccount.Set(email, acc)
 	IDToEmail.Set(ID, email)
 	IDToAccount.Set(ID, acc)
+
+	NewAccountEvent.Alert(*acc)
 
 	return acc
 }
@@ -127,11 +123,13 @@ func loadAccounts(db *sql.DB) error {
 	return nil
 }
 
+var NewAccountEvent = Event[Account]{}
 func init() {
 	EmailToID.Init()
 	EmailToAccount.Init()
 	IDToEmail.Init()
 	IDToAccount.Init()
+
 
 	SQLInitScript( "accounts",
 `CREATE TABLE IF NOT EXISTS accounts (

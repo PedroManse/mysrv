@@ -25,7 +25,7 @@ func SQLGetSingle(Name, Query string, vars... any) ( info *sql.Row ) {
 func SQLGet(Name, Query string, vars... any) ( info *sql.Rows, err error) {
 	info, err = db.Query(Query, vars...)
 	if (err != nil) {
-		FLog(SQLArea, "Failed executing script [%s]: %v\n%s with %+v\n", Name, err, Query, vars)
+		FLog(SQLArea, "Failed executing dynamic script [%s]: %v\n%s with %+v\n", Name, err, Query, vars)
 	}
 	return
 }
@@ -33,7 +33,7 @@ func SQLGet(Name, Query string, vars... any) ( info *sql.Rows, err error) {
 func SQLDo(Name, Query string, vars... any) ( info sql.Result, err error) {
 	info, err = db.Exec(Query, vars...)
 	if (err != nil) {
-		FLog(SQLArea, "Failed executing script [%s]: %v\n%s with %+v\n", Name, err, Query, vars)
+		FLog(SQLArea, "Failed executing dynamic script [%s]: %v\n%s with %+v\n", Name, err, Query, vars)
 	}
 	return
 }
