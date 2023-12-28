@@ -1,5 +1,14 @@
 <!DOCTYPE html>
 <html>
+	<head>
+		<title>
+			{{ if .acc }}
+				Change Account
+			{{ else }}
+				Register Account
+			{{ end }}
+		</title>
+	</head>
 	<body>
 		{{ if .acc }}
 			<h1>Olá {{.acc.Name}}</h1>
