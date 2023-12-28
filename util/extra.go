@@ -36,6 +36,12 @@ func (S *SyncMap[K, V]) Get(key K) (v V, has bool) {
 	return
 }
 
+func (S *SyncMap[K, V]) GetI(key K) (v V) {
+	S.MUTEX.Lock()
+	defer S.MUTEX.Unlock()
+	return S.MAP[key]
+}
+
 type _Tuple[K comparable, V any] struct {
 	Key K
 	Value V
@@ -75,5 +81,20 @@ func (S *SyncMap[K, V]) IterKeys() <-chan K {
 	}
 	close(tchan)
 	return tchan
+}
+
+type listener[T any] func(T) (suicide bool)
+type Event[T any] []listener[T]
+
+func (E *Event[T]) Listen(l listener[T]) {
+	*E = append(*E, l)
+}
+
+func (E *Event[T]) Alert(value T) {
+	for i, handler := range *E {
+		if (handler(value)) {
+			*E = append((*E)[:i], (*E)[i+1:]...)
+		}
+	}
 }
 
