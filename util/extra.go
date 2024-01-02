@@ -43,18 +43,22 @@ func (S *SyncMap[K, V]) GetI(key K) (v V) {
 	return S.MAP[key]
 }
 
-type _Tuple[K comparable, V any] struct {
-	Key K
-	Value V
+type Tuple[K any, V any] struct {
+	Left K
+	Right V
 }
 
-func (S *SyncMap[K, V]) Iter() <-chan _Tuple[K, V] {
+func (T Tuple[K, V]) Unpack() (K, V) {
+	return T.Left, T.Right
+}
+
+func (S *SyncMap[K, V]) Iter() <-chan Tuple[K, V] {
 	S.MUTEX.Lock()
 	defer S.MUTEX.Unlock()
 
-	tchan := make(chan _Tuple[K, V], len(S.MAP))
+	tchan := make(chan Tuple[K, V], len(S.MAP))
 	for k,v := range S.MAP {
-		tchan<-_Tuple[K, V]{k, v}
+		tchan<-Tuple[K, V]{k, v}
 	}
 	close(tchan)
 	return tchan
