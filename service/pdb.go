@@ -27,7 +27,9 @@ CREATE TABLE IF NOT EXISTS pdb_data (
 	col INT NOT NULL,
 	data TEXT NOT NULL,
 	FOREIGN KEY(accid) REFERENCES pdb_info(accid),
-	UNIQUE(accid, row, col)
+	UNIQUE(accid, row, col),
+	CHECK(row >= 0),
+	CHECK(col >= 0)
 );
 `
 
