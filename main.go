@@ -118,6 +118,7 @@ var ( // templated pages
 func main() {
 	InitSQL("sqlite3.db")
 	InitAssoc()
+	service.TestScript()
 
 	// site-wide service
 	http.Handle("/", index)

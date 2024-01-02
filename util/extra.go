@@ -3,6 +3,7 @@ package util
 import (
 	"hash/fnv"
 	"sync"
+	"sync/atomic"
 )
 
 type HashResult = uint32
@@ -98,3 +99,19 @@ func (E *Event[T]) Alert(value T) {
 	}
 }
 
+func NewAtomicUint(sv uint64) AtomicUint {
+	var v uint64 = sv+0
+	return AtomicUint{&v}
+}
+
+type AtomicUint struct {
+	num *uint64
+}
+
+func (A *AtomicUint) Add(v uint64) {
+	atomic.AddUint64(A.num, uint64(v))
+}
+
+func (A *AtomicUint) Load() (uint64) {
+	return atomic.LoadUint64(A.num)
+}
