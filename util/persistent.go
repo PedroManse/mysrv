@@ -25,7 +25,7 @@ func SQLGetSingle(Name, Query string, vars... any) ( info *sql.Row ) {
 func SQLGet(Name, Query string, vars... any) ( info *sql.Rows, err error) {
 	info, err = db.Query(Query, vars...)
 	if (err != nil) {
-		FLog(SQLArea, "Failed executing dynamic script [%s]: %v\n%s with %+v\n", Name, err, Query, vars)
+		FLog(SQLArea, "\x1b[31mFailed executing dynamic script\x1b[0m [%s]: %v\n%s with %+v\n", Name, err, Query, vars)
 	}
 	return
 }
@@ -33,7 +33,7 @@ func SQLGet(Name, Query string, vars... any) ( info *sql.Rows, err error) {
 func SQLDo(Name, Query string, vars... any) ( info sql.Result, err error) {
 	info, err = db.Exec(Query, vars...)
 	if (err != nil) {
-		FLog(SQLArea, "Failed executing dynamic script [%s]: %v\n%s with %+v\n", Name, err, Query, vars)
+		FLog(SQLArea, "\x1b[31mFailed executing dynamic script\x1b[0m [%s]: %v\n%s with %+v\n", Name, err, Query, vars)
 	}
 	return
 }
@@ -52,7 +52,7 @@ func InitSQL(dbfile string) error {
 	var err error
 	db, err = sql.Open("sqlite3", dbfile)
 	if (err != nil) {
-		FLog(SQLArea, "Failed openning %q with sqlite3 drivers\n", dbfile)
+		FLog(SQLArea, "\x1b[31mFailed openning %q with sqlite3 drivers\x1b[0m\n", dbfile)
 		return err
 	}
 	FLog(SQLArea, "Successefully openned %q with sqlite3 drivers\n", dbfile)
@@ -61,7 +61,7 @@ func InitSQL(dbfile string) error {
 		_, err = db.Exec(script.Code)
 
 		if (err != nil) {
-			FLog(SQLArea, "Failed executing script [%s]: %v\n%s\n", script.Name, err, script.Code)
+			FLog(SQLArea, "\x1b[31mFailed executing script\x1b[0m [%s]: %v\n%s\n", script.Name, err, script.Code)
 			return err
 		}
 		FLog(SQLArea, "script [%s] executed successefully\n", script.Name)
@@ -71,7 +71,7 @@ func InitSQL(dbfile string) error {
 		err = fnc.Func(db)
 
 		if (err != nil) {
-			FLog(SQLArea, "Failed executing func [%s]: %v\n", fnc.Name, err)
+			FLog(SQLArea, "\x1b[31mFailed executing func\x1b[0m [%s]: %v\n", fnc.Name, err)
 			return err
 		}
 		FLog(SQLArea, "func [%s] executed successefully\n", fnc.Name)
