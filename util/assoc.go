@@ -69,6 +69,7 @@ func InitAssoc() {
 	// god i hate this // can't use "?", qstring because sql escapes it into a raw string
 	rows, e := SQLGet("util/assoc.InitAssoc#Read Table", "SELECT accid, "+qstring+" FROM assoc_data;")
 	if (e != nil) {panic(e)}
+	defer rows.Close()
 	for rows.Next() {
 		var accinfo SyncMap[string, any]
 		accinfo.Init()
