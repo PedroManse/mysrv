@@ -3,7 +3,6 @@ package util
 import (
 	"hash/fnv"
 	"sync"
-	"sync/atomic"
 )
 
 type HashResult = uint32
@@ -12,6 +11,13 @@ func Hash(s string) HashResult {
 	h := fnv.New32a()
 	h.Write([]byte(s))
 	return h.Sum32()+uint32(90749*len(s))
+}
+
+func NewSyncMap[Key comparable, Value any]() SyncMap[Key, Value] {
+	return SyncMap[Key, Value]{
+		make(map[Key]Value),
+		sync.Mutex{},
+	}
 }
 
 type SyncMap[Key comparable, Value any] struct {
@@ -35,6 +41,19 @@ func (S *SyncMap[K, V]) Get(key K) (v V, has bool) {
 	defer S.MUTEX.Unlock()
 	v, has = S.MAP[key]
 	return
+}
+
+func (S *SyncMap[K, V]) Unset(key K) {
+	S.MUTEX.Lock()
+	defer S.MUTEX.Unlock()
+	delete(S.MAP, key)
+}
+
+func (S *SyncMap[K, V]) Has(key K) ( has bool ) {
+	S.MUTEX.Lock()
+	defer S.MUTEX.Unlock()
+	_, has = S.MAP[key]
+	return has
 }
 
 func (S *SyncMap[K, V]) GetI(key K) (v V) {
@@ -103,19 +122,3 @@ func (E *Event[T]) Alert(value T) {
 	}
 }
 
-func NewAtomicUint(sv uint64) AtomicUint {
-	var v uint64 = sv+0
-	return AtomicUint{&v}
-}
-
-type AtomicUint struct {
-	num *uint64
-}
-
-func (A *AtomicUint) Add(v uint64) {
-	atomic.AddUint64(A.num, uint64(v))
-}
-
-func (A *AtomicUint) Load() (uint64) {
-	return atomic.LoadUint64(A.num)
-}
