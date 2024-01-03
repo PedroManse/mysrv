@@ -9,10 +9,6 @@ import (
 	"encoding/json"
 )
 
-// TODO
-type HttpWriter = http.ResponseWriter
-type HttpReq = *http.Request
-
 var pdbSQLScript = `
 CREATE TABLE IF NOT EXISTS pdb_info (
 	accid INTEGER NOT NULL PRIMARY KEY,
@@ -111,6 +107,7 @@ SELECT row, col, data FROM pdb_data
 WHERE accid=? AND row<? AND col<?
 LIMIT ?;`, id, rowcount, colcount, rowcount*colcount)
 	if (err != nil) {panic(err)}
+	defer sqlinfo.Close()
 
 	var data string
 	var row, col int
@@ -124,7 +121,7 @@ LIMIT ?;`, id, rowcount, colcount, rowcount*colcount)
 	return table
 }
 
-func pdbCopy(w HttpWriter, r HttpReq, info map[string]any) (render bool, ret_r any) {
+func pdbCopy(w util.HttpWriter, r util.HttpReq, info map[string]any) (render bool, ret_r any) {
 	accinfo := info["acc"].(map[string]any)
 
 	if (!accinfo["ok"].(bool)) {
@@ -148,7 +145,7 @@ type PDBSize struct {
 	Col string `json:"col"`
 }
 
-func PDBHandler(w HttpWriter, r HttpReq) {
+func PDBHandler(w util.HttpWriter, r util.HttpReq) {
 	_, accinfo := util.GOTM_account.Plug(w, r, make(map[string]any))
 	ok, _ := util.GOTM_mustacc.Plug(w, r, map[string]any{"acc":accinfo})
 	if (!ok) {return}
