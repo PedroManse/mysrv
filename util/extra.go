@@ -107,6 +107,27 @@ func (S *SyncMap[K, V]) IterKeys() <-chan K {
 	return tchan
 }
 
+func (S *SyncMap[K, V]) Copy() (m SyncMap[K, V]) {
+	S.MUTEX.Lock()
+	defer S.MUTEX.Unlock()
+	m.MAP = make(map[K]V)
+	for k,v:=range S.MAP {
+		m.MAP[k] = v
+	}
+	m.MUTEX = sync.Mutex{}
+	return
+}
+
+func (S *SyncMap[K, V]) AMap() (m map[K]V) {
+	S.MUTEX.Lock()
+	defer S.MUTEX.Unlock()
+	m = make(map[K]V)
+	for k,v:=range S.MAP {
+		m[k] = v
+	}
+	return
+}
+
 type listener[T any] func(T) (suicide bool)
 type Event[T any] []listener[T]
 

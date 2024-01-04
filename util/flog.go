@@ -4,6 +4,7 @@ import (
 	"time"
 	"math"
 	"fmt"
+	"os"
 )
 
 type color struct {
@@ -82,11 +83,14 @@ func FLog(selectedAreas int, format string, stuff... any) {
 		text = fmt.Sprintf(format, stuff...)
 	}
 	fmttime := time.Now().Format("01/02 15:04:05")
-	fmt.Printf("[%v] %s: %s", fmttime, preamble, text)
+	fmt.Fprintf(os.Stderr, "[%v] %s: %s", fmttime, preamble, text)
 }
 
 //TODO: get new Flog system from pedromanse/timecard
 var FLOG_ERROR int
+var FLOG_INFO int
 func init() {
 	FLOG_ERROR = NewArea("ERROR")
+	FLOG_INFO = NewArea("INFO")
 }
+

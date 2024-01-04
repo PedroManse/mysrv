@@ -139,6 +139,6 @@ func main() {
 	http.HandleFunc("/fsecb", service.ECBHandler)
 	http.HandleFunc("/fspdb", service.PDBHandler)
 
-	fmt.Println("Running")
-	http.ListenAndServe("0.0.0.0:8080", nil)
+	FLog(FLOG_INFO, "Running\n")
+	//panic(http.ListenAndServe("0.0.0.0:8080", nil))
 }

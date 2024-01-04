@@ -6,6 +6,11 @@ import (
 	"fmt"
 	"database/sql"
 	"sync/atomic"
+	"html/template"
+	"github.com/gomarkdown/markdown"
+
+	"io"
+	"os"
 )
 
 /*
@@ -63,6 +68,7 @@ CREATE TABLE IF NOT EXISTS social_post_reaction (
 	postID INTEGER NOT NULL,
 	accID INTEGER NOT NULL,
 	action INTEGER NOT NULL,
+	UNIQUE(postID, accID),
 	FOREIGN KEY(accID) REFERENCES accounts(id),
 	FOREIGN KEY(postID) REFERENCES social_post(commentID)
 );
@@ -71,20 +77,125 @@ CREATE TABLE IF NOT EXISTS social_comment_reaction (
 	commentID INTEGER NOT NULL,
 	accID INTEGER NOT NULL,
 	action INTEGER NOT NULL,
+	UNIQUE(commentID, accID),
 	FOREIGN KEY(commentID) REFERENCES social_comment(commentID),
 	FOREIGN KEY(accID) REFERENCES accounts(id)
 );
 `
 
+func TestScript() {
+	fmt.Println(` <!DOCTYPE html> <html> <head> <link href="/files/ex.css" rel="stylesheet" type="text/css"> </head> <body> `)
+	//IDToPost.GetI(1).HTMLCard(os.Stdout, IDToAccount.GetI(1))
+	IDToPost.GetI(1).HTMLPage(os.Stdout, IDToAccount.GetI(1))
+	//IDToPost.GetI(2).HTMLCard(os.Stdout, IDToAccount.GetI(1))
+	//IDToPost.GetI(2).HTMLPage(os.Stdout, IDToAccount.GetI(1))
+	fmt.Println(`</body> </html>`)
+}
+
+func (P *Post) HTMLPage(w io.Writer, viewer *Account) {
+	e := template.Must(template.New("Post.Page").Parse(`
+<div class="post page" id="post-{{ .post.PostID }}">
+	<span class="op">
+		<span class="name">{{.post.Poster.Name}}</span>
+		<span class="email">{{.post.Poster.Email}}</span>
+	</span>
+	<div class="content">
+		{{ .post.PostHTML }}
+	</div>
+	{{ $userReaction := .post.Reactions.GetI .acc.ID }}
+	<div id="reactions" class="reactions">
+		<span class="reactionCount">
+			<span class="likes"> {{ .post.LikeCount.Load }} </span>
+			<span class="dislikes"> {{ .post.DislikeCount.Load }} </span>
+		</span>
+		<span class="react">
+			{{ range $i, $info := .allreactions }}
+				{{ $info.HTML $userReaction $.post.PostID }}
+			{{ end }}
+		</span>
+		<span class="commentCount">
+		{{ .post.CommentCount.Load }}
+		</span>
+		<div class="comments">
+			{{ range $i, $comment := .post.Comments }}
+				{{ $userReaction := $comment.Reactions.GetI $.acc.ID }}
+				{{ $comment.HTML $userReaction $.acc.ID }}
+			{{ end }}
+		</div>
+	</div>
+</div>
+`)).Execute(w, map[string]any{
+	"allreactions":ReactionsInfo,
+	"post":*P,
+	"acc":viewer,
+})
+	if (e!=nil) { panic(e) }
+}
+
+func (P *Post) HTMLCard(w io.Writer, viewer *Account) {
+	e := template.Must(template.New("Post.Card").Parse(`
+<div class="post card" id="post-{{ .post.PostID }}">
+	<span class="reactionCount">
+		<span class="likes"> {{ .post.LikeCount.Load }} </span>
+		<span class="dislikes"> {{ .post.DislikeCount.Load }} </span>
+	</span>
+	{{ .post.PostHTML }}
+
+	{{ $userReaction := .post.Reactions.GetI .acc.ID }}
+	<div class="reactions">
+		<span class="reactionCount">
+			<span class="likes"> {{ .likeCount }} </span>
+			<span class="dislikes"> {{ .dislikeCount }} </span>
+		</span>
+		<span class="react">
+			{{ range $i, $info := .allreactions }}
+				{{ $info.HTML $userReaction $.post.PostID }}
+			{{ end }}
+		</span>
+		<span class="commentCount">
+		{{ .post.CommentCount.Load }}
+		</span>
+	</div>
+</div>
+`,
+)).Execute(w, map[string]any{
+	"allreactions":ReactionsInfo,
+	"post":*P,
+	"acc":viewer,
+})
+	if (e!=nil) { panic(e) }
+}
+
+func MDToHTML(MD string) (HTML template.HTML) {
+	return template.HTML(string(markdown.ToHTML([]byte(MD), nil, nil)))
+}
+
 type ReactionType = uint64
 type ReactionInfo struct {
-	name string
-	meansHappy bool
-	img string
+	ID ReactionType
+	Name string
+	MeansHappy bool
+	Img string
+	Alt string
+	AltStyle string
+}
+
+func (R ReactionInfo) HTML(selected uint64, postid int64) (template.HTML) {
+	if (R.ID == 0) {return ""}
+	class:="notSelected"
+	if selected == R.ID {
+		class="selected"
+	}
+	return template.HTML(fmt.Sprintf(`
+	<button title=%q style=%q class="reaction %s" hx-post="/social/post/react/?reaction=%d&postid=%d">
+		<img src=%q alt=%q>
+	</button>
+	`, R.Name, R.AltStyle, class, R.ID, postid, R.Img, R.Alt) )
 }
 
 const (
-	ReactionLike = iota
+	NoReaction = iota
+	ReactionLike
 	ReactionDislike
 	ReactionLove
 	ReactionHate
@@ -92,48 +203,105 @@ const (
 	ReactionLimit
 )
 
-var ReactionInfos = [...]ReactionInfo{
-	ReactionLike: ReactionInfo{"Like", true, "/files/img/reaction_like"},
-	ReactionDislike: ReactionInfo{"Dislike", false, "/files/img/reaction_dislike"},
-	ReactionLove: ReactionInfo{"Love", true, "/files/img/reaction_love"},
-	ReactionHate: ReactionInfo{"Hate", false, "/files/img/reaction_hate"},
-	ReactionLaugh: ReactionInfo{"Laugh", true, "/files/img/reaction_laugh"},
+var ReactionsInfo = [...]ReactionInfo{
+	ReactionLike: ReactionInfo{ ReactionLike, "Like", true,
+	"/files/img/reaction_like", "↑", "color: green;",
+	},
+	ReactionDislike: ReactionInfo{ ReactionDislike, "Dislike", false,
+		"/files/img/reaction_dislike", "↓", "color: red;",
+	},
+	ReactionLove: ReactionInfo{ ReactionLove, "Love", true,
+		"/files/img/reaction_love", "<3", "color: pink;",
+	},
+	ReactionHate: ReactionInfo{ ReactionHate, "Hate", false,
+		"/files/img/reaction_hate", "`^´", "color: red;",
+	},
+	ReactionLaugh: ReactionInfo{ ReactionLaugh, "Laugh", true,
+		"/files/img/reaction_laugh", "XD", "color: white;",
+	},
 }
 
 type Community struct {
-	communityID int64
-	creator *Account
-	name string
-	description string
-	posts []*Post
-	subscount atomic.Uint64
+	CommunityID int64
+	Creator *Account
+	Name string
+	Description string
+	Posts []*Post
+	Subscount atomic.Uint64
 }
 
 type Post struct {
-	postID int64
-	poster *Account
-	community *Community
-	postText string
-	postTime time.Time
-	comments []*Comment
-	commentCount atomic.Uint64
-	likeCount atomic.Uint64
-	dislikeCount atomic.Uint64
-	reactions SyncMap[int64, ReactionType]
+	PostID int64
+	Poster *Account
+	Community *Community
+	PostText string
+	PostHTML template.HTML // markdown -> html!
+	PostTime time.Time
+	Comments []*Comment
+	CommentCount *atomic.Uint64
+	LikeCount *atomic.Uint64
+	DislikeCount *atomic.Uint64
+	Reactions *SyncMap[int64, ReactionType]
 }
 
 type Comment struct {
-	commentID int64
-	commenter *Account
-	post *Post
-	commentText string
-	commentTime time.Time
-	parentComment *Comment
-	children []*Comment
-	childrenCount atomic.Uint64
-	likeCount atomic.Uint64
-	dislikeCount atomic.Uint64
-	reactions SyncMap[int64, ReactionType]
+	CommentID int64
+	Commenter *Account
+	Post *Post
+	CommentText string
+	CommentHTML template.HTML
+	CommentTime time.Time
+	ParentComment *Comment
+	Children []*Comment
+	ChildrenCount *atomic.Uint64
+	LikeCount *atomic.Uint64
+	DislikeCount *atomic.Uint64
+	Reactions *SyncMap[int64, ReactionType]
+}
+
+func (C Comment) HTML(reaction uint64, viewer int64) template.HTML {
+	return template.HTML(fmt.Sprintf(`
+	<div class="comment" id="comment-%d">
+	<span class="op">
+		<span class="name">%s</span>
+	</span>
+		<span class="email">%s</span>
+	<div class="content">
+		%s
+	</div>
+	%s
+	</div>
+	`, C.CommentID,
+	C.Commenter.Name, C.Commenter.Email,
+	C.CommentText, C.HTMLChildren(viewer, 0),
+))
+}
+
+func (C Comment) HTMLChildren(viewer int64, depth int) string {
+	cum := ""
+	for _, cmt := range C.Children {
+		r := cmt.Reactions.GetI(viewer)
+		cum += cmt.ChildHTML(r, viewer, depth)
+	}
+	return `<div class="children">`+cum+`</div>`
+}
+
+func (C Comment) ChildHTML(reaction uint64, viewer int64, depth int) string {
+	return fmt.Sprintf(`
+	<div class="comment border_%d" id="comment-%d">
+	<span class="op">
+		<span class="name">%s</span>
+		<span class="email">%s</span>
+	</span>
+	<div class="content">
+		%s
+	</div>
+	%s
+	</div>
+	`, (depth%4)+1, C.CommentID,
+	C.Commenter.Name, C.Commenter.Email,
+	C.CommentText, C.HTMLChildren(viewer, depth+1),
+)
 }
 
 // maps
@@ -168,12 +336,16 @@ func dprt[A any](a *A) {
 	fmt.Printf("\n[%p] %T %+v\n", a, *a, *a)
 }
 
-func TestScript() {
-	dprt(IDToPost.GetI(1))
-	fmt.Println(IDToPost)
-	fmt.Println(IDToComment)
-	fmt.Println(UIDToSubs)
-	fmt.Println(CIDToSubs)
+func (C *Comment) React(accID int64, reaction ReactionType) {
+	e, _ := SQLDo("service/social.(*Comment).React", `
+	INSERT INTO social_comment_reaction
+		(commentID, accID, action)
+	VALUES
+		(?, ?, ?)
+	ON CONFLICT
+		UPDATE action=?;`,
+	C.CommentID, accID, reaction, reaction)
+	if (e != nil) {panic(e)}
 }
 
 func (P *Post) React(accID int64, reaction ReactionType) {
@@ -184,7 +356,7 @@ func (P *Post) React(accID int64, reaction ReactionType) {
 		(?, ?, ?)
 	ON CONFLICT
 		UPDATE action=?;`,
-	P.postID, accID, reaction, reaction)
+	P.PostID, accID, reaction, reaction)
 	if (e != nil) {panic(e)}
 }
 
@@ -232,7 +404,7 @@ func subTo(subber *Account, comm *Community) {
 	VALUES (?, ?);
 
 	UPDATE social_community SET subcount=subcount+1 WHERE communityID=?;`,
-	subber.ID, comm.communityID, comm.communityID)
+	subber.ID, comm.CommunityID, comm.CommunityID)
 
 	if (e != nil) {panic(e)}
 	_loadsubTo(subber, comm)
@@ -243,16 +415,17 @@ func createComment(creator *Account, commentText string, parentPost *Post, paren
 		c = _createSoleComment(creator, commentText, parentPost)
 	} else {
 		c = _createChildComment(creator, commentText, parentPost, parentComment)
-		parentComment.childrenCount.Add(1)
+		parentComment.ChildrenCount.Add(1)
 	}
-	IDToComment.Set(c.commentID, c)
+	parentPost.CommentCount.Add(1)
+	IDToComment.Set(c.CommentID, c)
 	_, e := SQLDo("service/social.createComment", `
 	UPDATE social_post
 	SET commentCount = commentCount + 1
 	WHERE postID=?;
-	`, parentPost.postID)
+	`, parentPost.PostID)
 	//CommentToPost.Set(c, parentPost)
-	parentPost.comments = append(parentPost.comments, c)
+	parentPost.Comments = append(parentPost.Comments, c)
 	if (e != nil) {panic(e)}
 	return
 }
@@ -260,27 +433,28 @@ func createComment(creator *Account, commentText string, parentPost *Post, paren
 // posterID INTEGER NOT NULL,
 // postText TEXT NOT NULL,
 // postTime DATETIME NOT NULL,
-func createPost(creator *Account, postText string, comm *Community) *Post {
+func createPost(creator *Account, PostText string, comm *Community) *Post {
 	r, e := SQLDo("service/social.createPost", `
 	INSERT INTO social_post
 	(posterID, communityID, postText, postTime)
-	VALUES (?, ?, ?, CURRENT_TIMESTAMP);`, creator.ID, comm.communityID, postText)
+	VALUES (?, ?, ?, CURRENT_TIMESTAMP);`, creator.ID, comm.CommunityID, PostText)
 	if (e != nil) {panic(e)}
 	PostId, _ := r.LastInsertId()
 	var reactions SyncMap[int64, ReactionType]
 	reactions.Init()
 	p := &Post{
 		PostId, creator, comm,
-		postText,
+		PostText,
+		MDToHTML(PostText),
 		time.Now(),
 		[]*Comment{},
-		atomic.Uint64{},
-		atomic.Uint64{},
-		atomic.Uint64{},
-		reactions,
+		&atomic.Uint64{},
+		&atomic.Uint64{},
+		&atomic.Uint64{},
+		&reactions,
 	}
 	IDToPost.Set(PostId, p)
-	comm.posts = append(comm.posts, p)
+	comm.Posts = append(comm.Posts, p)
 	return p
 }
 
@@ -288,7 +462,7 @@ func _createSoleComment(creator *Account, commentText string, parentPost *Post) 
 	r, e := SQLDo("service/social.createSoleComment", `
 	INSERT INTO social_comment
 	(commenterID, commentText, commentTime, postID)
-	VALUES (?, ?, CURRENT_TIMESTAMP, ?);`, creator.ID, commentText, parentPost.postID)
+	VALUES (?, ?, CURRENT_TIMESTAMP, ?);`, creator.ID, commentText, parentPost.PostID)
 	if (e != nil) {panic(e)}
 	CommentID, _ := r.LastInsertId()
 	var reactions SyncMap[int64, ReactionType]
@@ -298,13 +472,14 @@ func _createSoleComment(creator *Account, commentText string, parentPost *Post) 
 		creator,
 		parentPost,
 		commentText,
+		MDToHTML(commentText),
 		time.Now(),
 		nil,
 		[]*Comment{},
-		atomic.Uint64{},
-		atomic.Uint64{},
-		atomic.Uint64{},
-		reactions,
+		&atomic.Uint64{},
+		&atomic.Uint64{},
+		&atomic.Uint64{},
+		&reactions,
 	}
 	return c
 }
@@ -318,9 +493,8 @@ func _createChildComment(creator *Account, commentText string, parentPost *Post,
 	UPDATE social_comment
 	SET childrenCount = childrenCount + 1
 	WHERE commentID=?;
-	`, creator.ID, commentText, parentPost.postID, parentComment.commentID, parentComment.commentID)
+	`, creator.ID, commentText, parentPost.PostID, parentComment.CommentID, parentComment.CommentID)
 	if (e != nil) {panic(e)}
-	parentPost.commentCount.Add(1)
 
 	var reactions SyncMap[int64, ReactionType]
 	reactions.Init()
@@ -330,15 +504,16 @@ func _createChildComment(creator *Account, commentText string, parentPost *Post,
 		creator,
 		parentPost,
 		commentText,
+		MDToHTML(commentText),
 		time.Now(),
 		parentComment,
 		[]*Comment{},
-		atomic.Uint64{},
-		atomic.Uint64{},
-		atomic.Uint64{},
-		reactions,
+		&atomic.Uint64{},
+		&atomic.Uint64{},
+		&atomic.Uint64{},
+		&reactions,
 	}
-	parentComment.children = append(parentComment.children, c)
+	parentComment.Children = append(parentComment.Children, c)
 	return c
 }
 
@@ -351,34 +526,65 @@ func _loadsubs(db *sql.DB) (err error) {
 	for rows.Next() {
 		var commID int64
 		var subCount uint64
-		rows.Scan(&commID, &subCount)
+		err = rows.Scan(&commID, &subCount)
+		if (err != nil) {return err}
 		comm, ok := IDToCommunity.Get(commID)
 		if (!ok) {return fmt.Errorf("Can't find community [%d]", commID)}
-		comm.subscount.Store(subCount)
+		comm.Subscount.Store(subCount)
 	}
 	return
 }
 
 func _loadreactions(db *sql.DB) (err error) {
-	rows, err := SQLGet("service/social.loadSQL#load reactions", `
+	rows, err := SQLGet("service/social.loadSQL#load reactions for posts", `
 	SELECT accID, postID, action FROM social_post_reaction;
 	`)
 	if (err != nil) {return err}
 	defer rows.Close()
-	var accID, postID int64
+	var accID, PostID int64
 	var reaction ReactionType
 
 	for rows.Next() {
-		err = rows.Scan(&accID, &postID, &reaction)
+		err = rows.Scan(&accID, &PostID, &reaction)
 		if (err != nil) {return err}
-		post, ok := IDToPost.Get(postID)
-		if (!ok) {return fmt.Errorf("Can't find post [%d]", postID)}
+		post, ok := IDToPost.Get(PostID)
+		if (!ok) {return fmt.Errorf("Can't find post [%d]", PostID)}
 		ok = IDToAccount.Has(accID)
 		if (!ok) {return fmt.Errorf("Can't find account [%d]", accID)}
 		if (reaction >= ReactionLimit) {
 			return fmt.Errorf("Inexistent Reaction [%d]", reaction)
 		}
-		post.reactions.Set(accID, reaction)
+		post.Reactions.Set(accID, reaction)
+		if (ReactionsInfo[reaction].MeansHappy) {
+			post.LikeCount.Add(1)
+		} else {
+			post.DislikeCount.Add(1)
+		}
+	}
+
+	rows, err = SQLGet("service/social.loadSQL#load reactions for comments", `
+	SELECT accID, commentID, action FROM social_comment_reaction;
+	`)
+	if (err != nil) {return err}
+	defer rows.Close()
+	var commentID int64
+
+	for rows.Next() {
+		err = rows.Scan(&accID, &commentID, &reaction)
+		if (err != nil) {return err}
+		comment, ok := IDToComment.Get(commentID)
+		if (!ok) {return fmt.Errorf("Can't find comment [%d]", commentID)}
+		ok = IDToAccount.Has(accID)
+		if (!ok) {return fmt.Errorf("Can't find account [%d]", accID)}
+		if (reaction >= ReactionLimit) {
+			return fmt.Errorf("Inexistent Reaction [%d]", reaction)
+		}
+		comment.Reactions.Set(accID, reaction)
+		if (ReactionsInfo[reaction].MeansHappy) {
+			comment.LikeCount.Add(1)
+		} else {
+			comment.DislikeCount.Add(1)
+		}
 	}
 	return
 }
@@ -426,34 +632,37 @@ FROM
 	if (err != nil){return}
 	defer rows.Close()
 	for rows.Next() {
-		var postID, communityID, posterID int64
-		var postText string
-		var postTime time.Time
+		var PostID, communityID, posterID int64
+		var PostText string
+		var PostTime time.Time
 		var commentCount uint64
 		err = rows.Scan(
-			&postID, &communityID, &posterID,
-			&postText,
-			&postTime,
+			&PostID, &communityID, &posterID,
+			&PostText,
+			&PostTime,
 			&commentCount,
 		)
 		if (err != nil){return}
-		poster, ok := IDToAccount.Get(posterID)
+		Poster, ok := IDToAccount.Get(posterID)
 		if (!ok) {return fmt.Errorf("Can't find post creator [%d]", posterID)}
-		comm, ok := IDToCommunity.Get(communityID)
+		Comm, ok := IDToCommunity.Get(communityID)
 		if (!ok) {return fmt.Errorf("Can't find community [%d]", communityID)}
 		atomicCommentCount := atomic.Uint64{}
 		atomicCommentCount.Store(commentCount)
+		reactions := NewSyncMap[int64, ReactionType]()
 		p := &Post{
-			postID, poster, comm,
-			postText, postTime,
+			PostID, Poster, Comm,
+			PostText,
+			MDToHTML(PostText),
+			PostTime,
 			[]*Comment{},
-			atomicCommentCount,
-			atomic.Uint64{},
-			atomic.Uint64{},
-			NewSyncMap[int64, ReactionType](),
+			&atomicCommentCount,
+			&atomic.Uint64{},
+			&atomic.Uint64{},
+			&reactions,
 		}
-		IDToPost.Set(postID, p)
-		comm.posts = append(comm.posts, p)
+		IDToPost.Set(PostID, p)
+		Comm.Posts = append(Comm.Posts, p)
 	}
 	return
 }
@@ -472,23 +681,22 @@ FROM
 	var setparent = []ParentChild{}
 
 	for rows.Next() {
-		var commentID, commenterID, postID, parentCommentID int64
+		var commentID, commenterID, PostID int64
+		var parentCommentID *int64
 		var commentText string
 		var commentTime time.Time
 		var childrenCount uint64
-		rows.Scan(
-			&commentID, &commenterID, &postID, &parentCommentID,
+		e:=rows.Scan(
+			&commentID, &commenterID, &PostID, &parentCommentID,
 			&commentText,
 			&commentTime,
 			&childrenCount,
 		)
+		if (e != nil) {panic(e)}
 		commenter, ok := IDToAccount.Get(commenterID)
 		if (!ok) {return fmt.Errorf("Can't find commenter [%d]", commenterID)}
-		post, ok := IDToPost.Get(postID)
-		if (!ok) {return fmt.Errorf("Can't find post for comment [%d]", postID)}
-		if (parentCommentID != 0) {
-			setparent = append(setparent, ParentChild{commentID, parentCommentID})
-		}
+		post, ok := IDToPost.Get(PostID)
+		if (!ok) {return fmt.Errorf("Can't find post for comment [%d]", PostID)}
 		var reactions SyncMap[int64, ReactionType]
 		reactions.Init()
 		atomicChildrenCount := atomic.Uint64{}
@@ -496,16 +704,21 @@ FROM
 		c := &Comment{
 			commentID, commenter, post,
 			commentText,
+			MDToHTML(commentText),
 			commentTime,
 			nil,
 			[]*Comment{},
-			atomicChildrenCount,
-			atomic.Uint64{},
-			atomic.Uint64{},
-			reactions,
+			&atomicChildrenCount,
+			&atomic.Uint64{},
+			&atomic.Uint64{},
+			&reactions,
+		}
+		if (parentCommentID != nil) {
+			setparent = append(setparent, ParentChild{commentID, *parentCommentID})
+		} else {
+			post.Comments = append(post.Comments, c)
 		}
 		IDToComment.Set(commentID, c)
-		post.comments = append(post.comments, c)
 	}
 
 	for _, pair := range setparent {
@@ -514,8 +727,8 @@ FROM
 		if (!ok) {return fmt.Errorf("Can't find child comment [%d]", childID)}
 		parent, ok := IDToComment.Get(parentID)
 		if (!ok) {return fmt.Errorf("Can't find parent comment [%d]", parentID)}
-		parent.children = append(parent.children, child)
-		child.parentComment = parent
+		parent.Children = append(parent.Children, child)
+		child.ParentComment = parent
 	}
 	return
 }

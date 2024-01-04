@@ -1,0 +1,75 @@
+
+body {
+	color: white;
+	background-color: #1F1F1F;
+	margin: 4px;
+}
+
+div.post {
+	border-style: solid;
+	border-color: gray;
+	padding: 5px;
+	color: white;
+}
+span.commentCount:before { content: "💬"; }
+div.post > div.comments > div { font-size: 18px; }
+div.post > div.content { font-size: 28px; }
+
+div.reactions {
+	span.reactionCount {
+		span.likes { color: green; }
+		span.likes:after { color: white; content: "/"; }
+		span.dislikes { color: red; }
+	}
+
+	span.react {
+		button.reaction.notSelected > img {
+			color: gray;
+		}
+
+		button.reaction {
+			background-color: #1F1F1F;
+		}
+
+		button.selected {
+			color: red;
+		}
+	}
+}
+
+span.op {
+	.name { color: #4080FF; }
+	.email { color: #4F4F4F; }
+	.email:before { content: "<"; }
+	.email:after { content: ">"; }
+}
+
+div.post > span.op {
+	font-size: 18px;
+}
+
+div.comment > span.op {
+	font-size: 11px;
+}
+
+
+div.comment {
+	border-style: unset;
+	border-left-style: solid;
+	margin: 4px;
+	padding: 4px;
+	.border_1 { border-color: darkblue; }
+	.border_2 { border-color: darkred; }
+	.border_3 { border-color: darkgreen; }
+	.border_4 { border-color: #8F8F8F8F; }
+}
+
+div.post.page > div.content {
+	h1{ maring: 10px; }
+	h2{ maring: 8px; }
+	h3{ maring: 6px; }
+	h4{ maring: 4px; }
+	h5{ maring: 2px; }
+	h6{ maring: 1px; }
+}
+
