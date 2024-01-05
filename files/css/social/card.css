@@ -1,0 +1,22 @@
+
+div.post.card {
+	span.community {
+	}
+	span.community:before {
+		content: "| posted in: ";
+	}
+
+	div.content {
+		overflow-y: clip;
+		max-height: 150px;
+		a.fill-div {
+			h1 { margin: 8px; }
+			h2 { margin: 6px; }
+			h3 { margin: 4px; }
+			h4 { margin: 2px; }
+			h5 { margin: 1px; }
+			h6 { margin: 0.5px; }
+		}
+	}
+}
+

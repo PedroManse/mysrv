@@ -10,12 +10,15 @@ div.post {
 	border-color: gray;
 	padding: 5px;
 	color: white;
+	margin: 4px;
 }
+
 span.commentCount:before { content: "💬"; }
+span.commentCount:after { content: " | "; }
 div.post > div.comments > div { font-size: 18px; }
 div.post > div.content { font-size: 28px; }
 
-div.reactions {
+span.reactions {
 	span.reactionCount {
 		span.likes { color: green; }
 		span.likes:after { color: white; content: "/"; }
@@ -23,6 +26,8 @@ div.reactions {
 	}
 
 	span.react {
+		z-index: 1;
+		position: relative;
 		button.reaction.notSelected > img {
 			color: gray;
 		}
@@ -64,12 +69,11 @@ div.comment {
 	.border_4 { border-color: #8F8F8F8F; }
 }
 
-div.post.page > div.content {
-	h1{ maring: 10px; }
-	h2{ maring: 8px; }
-	h3{ maring: 6px; }
-	h4{ maring: 4px; }
-	h5{ maring: 2px; }
-	h6{ maring: 1px; }
+a.fill-div {
+	color: white;
+	display: block;
+	height: 100%;
+	width: 100%;
+	text-decoration: none;
 }
 

@@ -128,6 +128,14 @@ func (S *SyncMap[K, V]) AMap() (m map[K]V) {
 	return
 }
 
+func RevertMap[K comparable, V comparable](mp map[K]V) (newmp map[V]K) {
+	newmp = make(map[V]K)
+	for k,v:=range mp {
+		newmp[v] = k
+	}
+	return
+}
+
 type listener[T any] func(T) (suicide bool)
 type Event[T any] []listener[T]
 

@@ -1,0 +1,14 @@
+
+div.post.page {
+	div.content {
+		a.fill-div {
+			h1 { margin: 10px; }
+			h2 { margin: 8px; }
+			h3 { margin: 6px; }
+			h4 { margin: 4px; }
+			h5 { margin: 2px; }
+			h6 { margin: 1px; }
+		}
+	}
+}
+

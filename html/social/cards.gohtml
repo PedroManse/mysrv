@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<link href="/files/css/social/feed.css" rel="stylesheet" type="text/css">
+	<link href="/files/css/social/card.css" rel="stylesheet" type="text/css">
+</head>
+<body>
+	{{ template "nav" . }}
+	{{ range $_, $post := .logic.posts }}
+	{{if $post}}
+		<div class="post card" id="post-{{ $post.PostID }}">
+
+			<span class="op">
+				<span class="name">{{$post.Poster.Name}}</span>
+				<span class="email">{{$post.Poster.Email}}</span>
+			</span>
+			<span class="community" title="{{$post.Community.Description}}">
+				<a href="/social/community?communityid={{$post.Community.CommunityID}}">
+					{{$post.Community.Name}}
+				</a>
+			</span>
+
+			<div class="content">
+				<a href="/social/post?postid={{$post.PostID}}" class="fill-div">
+					{{ $post.PostHTML }}
+				</a>
+			</div>
+
+			<span class="reactions">
+				{{ $userReaction := $post.Reactions.GetI $.logic.query.AccID }}
+				<span class="reactionCount">
+					<span class="likes"> {{ $post.LikeCount.Load }} </span>
+					<span class="dislikes"> {{ $post.DislikeCount.Load }} </span>
+				</span>
+				<span class="react">
+					{{ range $i, $info := $.allreactions }}
+						{{ $info.HTML $userReaction $post.PostID }}
+					{{ end }}
+				</span>
+			</span>
+
+			<span class="commentCount" title="{{ $post.CommentCount.Load }} Comments">
+				{{ $post.CommentCount.Load }}
+			</span>
+				{{ $post.PostTime.Format "02/01/2006 03:04:05PM" }}
+			<span class="postTime">
+			</span>
+
+		</div>
+	{{end}}
+	{{ end }}
+</body>
+</html>

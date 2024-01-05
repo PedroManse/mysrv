@@ -118,7 +118,7 @@ var ( // templated pages
 func main() {
 	InitSQL("sqlite3.db")
 	InitAssoc()
-	service.TestScript()
+	service.DebugSocial()
 
 	// site-wide service
 	http.Handle("/", index)
@@ -139,6 +139,9 @@ func main() {
 	http.HandleFunc("/fsecb", service.ECBHandler)
 	http.HandleFunc("/fspdb", service.PDBHandler)
 
+	// /social
+	http.Handle("/social/all", service.AllEndpoint)
+
 	FLog(FLOG_INFO, "Running\n")
-	//panic(http.ListenAndServe("0.0.0.0:8080", nil))
+	panic(http.ListenAndServe("0.0.0.0:8080", nil))
 }

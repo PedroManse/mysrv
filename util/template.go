@@ -42,6 +42,8 @@ type TemplatedPage struct {
 	Plugins []GOTMPlugin
 }
 
+// TODO DynamicPage
+// LogicedPage without template
 type LogicedPage struct {
 	Template *template.Template
 	Info map[string]any

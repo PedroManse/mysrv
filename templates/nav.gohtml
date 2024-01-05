@@ -45,12 +45,12 @@
 		{{ if .acc.ok }}
 		<p style="display: inline-block">
 			Olá {{.acc.name}}
-			<a href="login">Change Account!</a>
+			<a href="/login">Change Account!</a>
 		</p>
 		{{ else }}
 		<p style="display: inline-block">
 			Olá
-			<a href="login">Login!</a>
+			<a href="/login">Login!</a>
 			</p>
 		{{ end }}
 	</span>
@@ -80,6 +80,10 @@
 	<li><a href="/pdb">Personal DB</a></li>
 {{ end }}
 
+{{ define "nav social" }}
+	<li><a href="/social">PostBoard</a></li>
+{{ end }}
+
 {{ define "nav" }}
 		{{ template "top nav init" }}
 		{{ template "nav index" . }}
@@ -89,5 +93,7 @@
 		{{ template "nav forms" . }}
 		{{ template "nav pdb" . }}
 		{{ template "nav acc" . }}
+		{{ template "nav social" . }}
 		{{ template "top nav end" }}
 {{ end }}
+

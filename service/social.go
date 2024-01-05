@@ -8,9 +8,9 @@ import (
 	"sync/atomic"
 	"html/template"
 	"github.com/gomarkdown/markdown"
-
+	"strconv"
+	"sort"
 	"io"
-	"os"
 )
 
 /*
@@ -83,17 +83,72 @@ CREATE TABLE IF NOT EXISTS social_comment_reaction (
 );
 `
 
-func TestScript() {
-	fmt.Println(` <!DOCTYPE html> <html> <head> <link href="/files/ex.css" rel="stylesheet" type="text/css"> </head> <body> `)
-	//IDToPost.GetI(1).HTMLCard(os.Stdout, IDToAccount.GetI(1))
-	IDToPost.GetI(1).HTMLPage(os.Stdout, IDToAccount.GetI(1))
-	//IDToPost.GetI(2).HTMLCard(os.Stdout, IDToAccount.GetI(1))
-	//IDToPost.GetI(2).HTMLPage(os.Stdout, IDToAccount.GetI(1))
-	fmt.Println(`</body> </html>`)
+var AllEndpoint = LogicPage(
+	"html/social/cards.gohtml",
+	map[string]any{
+		"allreactions":ReactionsInfo,
+	},
+	[]GOTMPlugin{
+		GOTM_account,
+		GOTM_mustacc,
+		GOTM_log,
+	},
+	postsEndpoint,
+)
+
+type SocialQuery struct {
+	AccID int64
+	CommunityID int64
+	PostID int64
+	CommentID int64
+	Reaction ReactionType
+	PostCount int64
+	UseSort SortMethod
 }
 
-func (P *Post) HTMLPage(w io.Writer, viewer *Account) {
-	e := template.Must(template.New("Post.Page").Parse(`
+func prelude(w HttpWriter, r HttpReq, info map[string]any) (acc *Account, query SocialQuery, ok bool) {
+	r.ParseForm()
+	accid := (info["acc"].(map[string]any))["id"].(int64)
+	query.AccID = accid
+	acc, ok = IDToAccount.Get(accid)
+	if (!ok) {return}
+	query.CommunityID, _ = strconv.ParseInt(r.FormValue("communityid"), 10, 64)
+	query.PostID, _      = strconv.ParseInt(r.FormValue("postid"), 10, 64)
+	query.CommentID, _   = strconv.ParseInt(r.FormValue("commentid"), 10, 64)
+	query.Reaction, _    = strconv.ParseUint(r.FormValue("reaction"), 10, 64)
+	query.PostCount, _    = strconv.ParseInt(r.FormValue("postcount"), 10, 64)
+	query.UseSort = SortNameToID[r.FormValue("sortmethod")]
+	if (query.PostCount == 0) {
+		query.PostCount = 10
+	}
+	return
+}
+
+func postsEndpoint(w HttpWriter, r HttpReq, info map[string]any) (render bool, addinfo any) {
+	_, query, ok := prelude(w, r, info)
+	if (!ok) {return}
+
+	torender := []*Post{}
+	var i int64 = 0
+	// pre-sort by time; gather only PostCount
+	for post := range IDToPost.IterValues() {
+		torender = append(torender, post)
+		i++
+	}
+	sp := SortedPosts{torender, query.UseSort}
+	sort.Sort(sp)
+	if (int64(len(torender)) > query.PostCount) {
+		torender = torender[:query.PostCount]
+	}
+
+	return true, map[string]any{
+		"query": query,
+		"posts": torender,
+	}
+}
+
+
+var PostPageTemplate = template.Must(template.New("Post.Page").Parse(`
 <div class="post page" id="post-{{ .post.PostID }}">
 	<span class="op">
 		<span class="name">{{.post.Poster.Name}}</span>
@@ -124,41 +179,10 @@ func (P *Post) HTMLPage(w io.Writer, viewer *Account) {
 		</div>
 	</div>
 </div>
-`)).Execute(w, map[string]any{
-	"allreactions":ReactionsInfo,
-	"post":*P,
-	"acc":viewer,
-})
-	if (e!=nil) { panic(e) }
-}
+`))
 
-func (P *Post) HTMLCard(w io.Writer, viewer *Account) {
-	e := template.Must(template.New("Post.Card").Parse(`
-<div class="post card" id="post-{{ .post.PostID }}">
-	<span class="reactionCount">
-		<span class="likes"> {{ .post.LikeCount.Load }} </span>
-		<span class="dislikes"> {{ .post.DislikeCount.Load }} </span>
-	</span>
-	{{ .post.PostHTML }}
-
-	{{ $userReaction := .post.Reactions.GetI .acc.ID }}
-	<div class="reactions">
-		<span class="reactionCount">
-			<span class="likes"> {{ .likeCount }} </span>
-			<span class="dislikes"> {{ .dislikeCount }} </span>
-		</span>
-		<span class="react">
-			{{ range $i, $info := .allreactions }}
-				{{ $info.HTML $userReaction $.post.PostID }}
-			{{ end }}
-		</span>
-		<span class="commentCount">
-		{{ .post.CommentCount.Load }}
-		</span>
-	</div>
-</div>
-`,
-)).Execute(w, map[string]any{
+func (P *Post) HTMLPage(w io.Writer, viewer *Account) {
+	e := PostPageTemplate.Execute(w, map[string]any{
 	"allreactions":ReactionsInfo,
 	"post":*P,
 	"acc":viewer,
@@ -168,6 +192,77 @@ func (P *Post) HTMLCard(w io.Writer, viewer *Account) {
 
 func MDToHTML(MD string) (HTML template.HTML) {
 	return template.HTML(string(markdown.ToHTML([]byte(MD), nil, nil)))
+}
+
+type SortMethod = int64
+const (
+	_ = iota
+	SortNewest
+	SortOldest
+	SortComments
+	SortLikes
+	SortDislikes
+	SortDivided // LikeCout ~= DislikeCount
+	SortUnited // LikeCount <<>> DislikeCount
+	SortUnitedLove // LikeCount >> DislikeCount
+	SortUnitedHate // LikeCount << DislikeCount
+)
+
+var SortNameToID = map[string]SortMethod {
+	"Newest":         SortNewest,
+	"Oldest":         SortOldest,
+	"MostComments":   SortComments,
+	"MostLikes":      SortLikes,
+	"MostDislikes":   SortDislikes,
+	"MostDivided":    SortDivided,
+	"MostUnited":     SortUnited,
+	"MostUnitedLove": SortUnitedLove,
+	"MostUnitedHate": SortUnitedHate,
+}
+
+type SortedPosts struct {
+	PostsToRender []*Post
+	UseSort SortMethod
+}
+
+func (S SortedPosts) Len() (int) { return len(S.PostsToRender) }
+func (S SortedPosts) Swap(i, j int) {
+	S.PostsToRender[i], S.PostsToRender[j] = S.PostsToRender[j], S.PostsToRender[i]
+}
+func (S SortedPosts) Less(i, j int) bool {
+	PostA := S.PostsToRender[i]
+	PostB := S.PostsToRender[j]
+	if (PostB == nil) { return false }
+	if (PostA == nil) { return true }
+
+	//TODO get united/diveded ratio
+	switch (S.UseSort) {
+	default:
+		fallthrough
+	case SortNewest:
+		return PostA.PostTime.After(PostB.PostTime)
+	case SortOldest:
+		return PostA.PostTime.Before(PostB.PostTime)
+	case SortComments:
+		return PostA.CommentCount.Load() > PostB.CommentCount.Load()
+	case SortLikes:
+		return PostA.LikeCount.Load() > PostB.LikeCount.Load()
+	case SortDislikes:
+		return PostA.DislikeCount.Load() > PostB.DislikeCount.Load()
+	case SortDivided:
+		return PostA.DislikeCount.Load() > PostB.DislikeCount.Load()
+	case SortUnited:
+		return PostA.DislikeCount.Load() > PostB.DislikeCount.Load()
+	case SortUnitedLove:
+		return PostA.DislikeCount.Load() > PostB.DislikeCount.Load()
+	case SortUnitedHate:
+		return PostA.DislikeCount.Load() > PostB.DislikeCount.Load()
+	}
+}
+
+func DebugSocial() {
+	op := EmailToAccount.GetI("pedro@manse.dev")
+	fmt.Println(op)
 }
 
 type ReactionType = uint64
@@ -200,12 +295,13 @@ const (
 	ReactionLove
 	ReactionHate
 	ReactionLaugh
+	ReactionCry
 	ReactionLimit
 )
 
 var ReactionsInfo = [...]ReactionInfo{
 	ReactionLike: ReactionInfo{ ReactionLike, "Like", true,
-	"/files/img/reaction_like", "↑", "color: green;",
+		"/files/img/reaction_like", "↑", "color: green;",
 	},
 	ReactionDislike: ReactionInfo{ ReactionDislike, "Dislike", false,
 		"/files/img/reaction_dislike", "↓", "color: red;",
@@ -218,6 +314,9 @@ var ReactionsInfo = [...]ReactionInfo{
 	},
 	ReactionLaugh: ReactionInfo{ ReactionLaugh, "Laugh", true,
 		"/files/img/reaction_laugh", "XD", "color: white;",
+	},
+	ReactionCry: ReactionInfo{ ReactionCry, "Cry", false,
+	"/files/img/reaction_cry", ":(", "color: blue;",
 	},
 }
 
