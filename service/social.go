@@ -9,7 +9,6 @@ import (
 	"html/template"
 	"github.com/gomarkdown/markdown"
 	"strconv"
-	"sort"
 	"io"
 )
 
@@ -91,7 +90,6 @@ var AllEndpoint = LogicPage(
 	[]GOTMPlugin{
 		GOTM_account,
 		GOTM_mustacc,
-		GOTM_log,
 	},
 	postsEndpoint,
 )
@@ -117,7 +115,7 @@ func prelude(w HttpWriter, r HttpReq, info map[string]any) (acc *Account, query 
 	query.CommentID, _   = strconv.ParseInt(r.FormValue("commentid"), 10, 64)
 	query.Reaction, _    = strconv.ParseUint(r.FormValue("reaction"), 10, 64)
 	query.PostCount, _    = strconv.ParseInt(r.FormValue("postcount"), 10, 64)
-	query.UseSort = SortNameToID[r.FormValue("sortmethod")]
+	query.UseSort = SortNameToID.GetI(r.FormValue("sortmethod"))
 	if (query.PostCount == 0) {
 		query.PostCount = 10
 	}
@@ -128,23 +126,30 @@ func postsEndpoint(w HttpWriter, r HttpReq, info map[string]any) (render bool, a
 	_, query, ok := prelude(w, r, info)
 	if (!ok) {return}
 
-	torender := []*Post{}
-	var i int64 = 0
+	var sortedPosts = _AllSorted[query.UseSort]
+	pcount := Min(int(query.PostCount), len(sortedPosts))
+	torender := sortedPosts[:pcount]
+	//var i int64 = 0
 	// pre-sort by time; gather only PostCount
-	for post := range IDToPost.IterValues() {
-		torender = append(torender, post)
-		i++
-	}
-	sp := SortedPosts{torender, query.UseSort}
-	sort.Sort(sp)
-	if (int64(len(torender)) > query.PostCount) {
-		torender = torender[:query.PostCount]
-	}
-
+	//for post := range IDToPost.IterValues() {
+	//	torender = append(torender, post)
+	//	i++
+	//}
 	return true, map[string]any{
 		"query": query,
 		"posts": torender,
 	}
+
+	//sp := SortedPosts{torender, query.UseSort}
+	//sort.Sort(sp)
+	//if (int64(len(torender)) > query.PostCount) {
+	//	torender = torender[:query.PostCount]
+	//}
+
+	//return true, map[string]any{
+	//	"query": query,
+	//	"posts": torender,
+	//}
 }
 
 
@@ -194,6 +199,23 @@ func MDToHTML(MD string) (HTML template.HTML) {
 	return template.HTML(string(markdown.ToHTML([]byte(MD), nil, nil)))
 }
 
+var (
+	_AllSorted = [_TotalSortMethods][]*Post{
+		[]*Post{}, []*Post{}, []*Post{},
+		[]*Post{}, []*Post{}, []*Post{},
+		[]*Post{}, []*Post{}, []*Post{},
+	}
+	SortedPosts_Newest = &_AllSorted[0]
+	SortedPosts_Oldest = &_AllSorted[1]
+	SortedPosts_Comments = &_AllSorted[2]
+	SortedPosts_Likes = &_AllSorted[3]
+	SortedPosts_Dislikes = &_AllSorted[4]
+	SortedPosts_Divided = &_AllSorted[5]
+	SortedPosts_United = &_AllSorted[6]
+	SortedPosts_UnitedLove = &_AllSorted[7]
+	SortedPosts_UnitedHate = &_AllSorted[8]
+)
+
 type SortMethod = int64
 const (
 	_ = iota
@@ -206,9 +228,13 @@ const (
 	SortUnited // LikeCount <<>> DislikeCount
 	SortUnitedLove // LikeCount >> DislikeCount
 	SortUnitedHate // LikeCount << DislikeCount
+	_TotalSortMethods = iota-1 // 10
 )
 
-var SortNameToID = map[string]SortMethod {
+type SortSpot [_TotalSortMethods]int
+type SortCompares [_TotalSortMethods]bool
+
+var SortNameToID = ISyncMap(map[string]SortMethod {
 	"Newest":         SortNewest,
 	"Oldest":         SortOldest,
 	"MostComments":   SortComments,
@@ -218,51 +244,81 @@ var SortNameToID = map[string]SortMethod {
 	"MostUnited":     SortUnited,
 	"MostUnitedLove": SortUnitedLove,
 	"MostUnitedHate": SortUnitedHate,
+})
+var SortIDToName = RevertMap(SortNameToID.AMap())
+
+func PlaceInSorted(newpost *Post) {
+	sspt := FindSpots(newpost)
+	for SortType, spot := range sspt {
+		if (spot == 0) {
+			_AllSorted[SortType] = append( []*Post{newpost}, _AllSorted[SortType]...)
+		} else if (spot == len(_AllSorted[SortType])) {
+			_AllSorted[SortType] = append( _AllSorted[SortType], newpost)
+		} else {
+			_AllSorted[SortType] = append(
+				append(_AllSorted[SortType][:spot], newpost),
+				_AllSorted[SortType][spot:]...,
+			)
+		}
+	}
+	newpost.SortingSpots = sspt
 }
 
-type SortedPosts struct {
-	PostsToRender []*Post
-	UseSort SortMethod
+//func UpdateStop(sspt SortSpot)
+
+func FindSpots(newpost *Post) (sspt SortSpot) {
+	var scmp SortCompares
+	var sptFound SortCompares
+	for i:=0;i<len(_AllSorted[_TotalSortMethods-1]);i++ {
+		scmp = ComparePosts(newpost, i)
+		for SortType, IsBefore := range scmp {
+			if (IsBefore && !sptFound[SortType]) {
+				sptFound[SortType] = true
+				sspt[SortType] = i
+			}
+		}
+	}
+	for i:=0;i<_TotalSortMethods;i++ {
+		if (!sptFound[i]) {
+			sspt[i] = len(_AllSorted[_TotalSortMethods-1])
+		}
+	}
+	return
 }
 
-func (S SortedPosts) Len() (int) { return len(S.PostsToRender) }
-func (S SortedPosts) Swap(i, j int) {
-	S.PostsToRender[i], S.PostsToRender[j] = S.PostsToRender[j], S.PostsToRender[i]
-}
-func (S SortedPosts) Less(i, j int) bool {
-	PostA := S.PostsToRender[i]
-	PostB := S.PostsToRender[j]
-	if (PostB == nil) { return false }
-	if (PostA == nil) { return true }
+// check if PostA is more important than PostB
+func ComparePosts(PostA *Post, PostBIndex int) (scmp SortCompares) {
+	//assert PostA && PostB != nil
 
 	//TODO get united/diveded ratio
-	switch (S.UseSort) {
-	default:
-		fallthrough
-	case SortNewest:
-		return PostA.PostTime.After(PostB.PostTime)
-	case SortOldest:
-		return PostA.PostTime.Before(PostB.PostTime)
-	case SortComments:
-		return PostA.CommentCount.Load() > PostB.CommentCount.Load()
-	case SortLikes:
-		return PostA.LikeCount.Load() > PostB.LikeCount.Load()
-	case SortDislikes:
-		return PostA.DislikeCount.Load() > PostB.DislikeCount.Load()
-	case SortDivided:
-		return PostA.DislikeCount.Load() > PostB.DislikeCount.Load()
-	case SortUnited:
-		return PostA.DislikeCount.Load() > PostB.DislikeCount.Load()
-	case SortUnitedLove:
-		return PostA.DislikeCount.Load() > PostB.DislikeCount.Load()
-	case SortUnitedHate:
-		return PostA.DislikeCount.Load() > PostB.DislikeCount.Load()
+	SPosts := [_TotalSortMethods]*Post {
+		(*SortedPosts_Newest    )[PostBIndex],
+		(*SortedPosts_Oldest    )[PostBIndex],
+		(*SortedPosts_Comments  )[PostBIndex],
+		(*SortedPosts_Likes     )[PostBIndex],
+		(*SortedPosts_Dislikes  )[PostBIndex],
+		(*SortedPosts_Divided   )[PostBIndex],
+		(*SortedPosts_United    )[PostBIndex],
+		(*SortedPosts_UnitedLove)[PostBIndex],
+		(*SortedPosts_UnitedHate)[PostBIndex],
 	}
+	scmp[0] = PostA.PostTime.After      ( SPosts[0].PostTime )
+	scmp[1] = PostA.PostTime.Before     ( SPosts[1].PostTime )
+	scmp[2] = PostA.CommentCount.Load() > SPosts[2].CommentCount.Load()
+	scmp[3] = PostA.LikeCount.Load()    > SPosts[3].LikeCount.Load()
+	scmp[4] = PostA.DislikeCount.Load() > SPosts[4].DislikeCount.Load()
+	scmp[5] = PostA.DislikeCount.Load() > SPosts[5].DislikeCount.Load()
+	scmp[6] = PostA.DislikeCount.Load() > SPosts[6].DislikeCount.Load()
+	scmp[7] = PostA.DislikeCount.Load() > SPosts[7].DislikeCount.Load()
+	scmp[8] = PostA.DislikeCount.Load() > SPosts[8].DislikeCount.Load()
+	return
 }
 
 func DebugSocial() {
-	op := EmailToAccount.GetI("pedro@manse.dev")
-	fmt.Println(op)
+	for SortID, plist := range _AllSorted {
+		fmt.Printf("%s:%v\n", SortIDToName[int64(SortID+1)], plist)
+	}
+	//op := EmailToAccount.GetI("pedro@manse.dev")
 }
 
 type ReactionType = uint64
@@ -341,6 +397,7 @@ type Post struct {
 	LikeCount *atomic.Uint64
 	DislikeCount *atomic.Uint64
 	Reactions *SyncMap[int64, ReactionType]
+	SortingSpots SortSpot
 }
 
 type Comment struct {
@@ -415,16 +472,30 @@ var (
 	CIDToSubs SyncMap[*Community, []*Account]
 )
 
+// listeners
+var (
+	LoadPostEvent Event[*Post] // _loadposts
+	NewPostEvent Event[*Post] // createPost
+	InstancePostEvent Event[*Post] // _loadposts || createPost
+)
+
+func InstancePost(P *Post) (stopListener bool) {
+	IDToPost.Set(P.PostID, P)
+	P.Community.Posts = append(P.Community.Posts, P)
+	PlaceInSorted(P)
+	return
+}
+
 func init() {
 	SQLInitScript( "social#create tables", socialSQLTables )
 	SQLInitFunc( "social#load", loadSQL )
 
+	InstancePostEvent.Listen(InstancePost)
 	IDToPost.Init()
 	IDToComment.Init()
 	IDToCommunity.Init()
 	UIDToSubs.Init()
 	CIDToSubs.Init()
-	//CommentToPost.Init()
 }
 
 func ddprt[A any](a *A) {
@@ -541,6 +612,7 @@ func createPost(creator *Account, PostText string, comm *Community) *Post {
 	PostId, _ := r.LastInsertId()
 	var reactions SyncMap[int64, ReactionType]
 	reactions.Init()
+	// instance post
 	p := &Post{
 		PostId, creator, comm,
 		PostText,
@@ -551,7 +623,11 @@ func createPost(creator *Account, PostText string, comm *Community) *Post {
 		&atomic.Uint64{},
 		&atomic.Uint64{},
 		&reactions,
+		SortSpot{},
 	}
+	NewPostEvent.Alert(p)
+	InstancePostEvent.Alert(p)
+
 	IDToPost.Set(PostId, p)
 	comm.Posts = append(comm.Posts, p)
 	return p
@@ -749,6 +825,7 @@ FROM
 		atomicCommentCount := atomic.Uint64{}
 		atomicCommentCount.Store(commentCount)
 		reactions := NewSyncMap[int64, ReactionType]()
+		// instance post
 		p := &Post{
 			PostID, Poster, Comm,
 			PostText,
@@ -759,7 +836,11 @@ FROM
 			&atomic.Uint64{},
 			&atomic.Uint64{},
 			&reactions,
+			SortSpot{},
 		}
+		LoadPostEvent.Alert(p)
+		InstancePostEvent.Alert(p)
+
 		IDToPost.Set(PostID, p)
 		Comm.Posts = append(Comm.Posts, p)
 	}

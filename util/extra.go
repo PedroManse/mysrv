@@ -13,6 +13,11 @@ func Hash(s string) HashResult {
 	return h.Sum32()+uint32(90749*len(s))
 }
 
+type SyncMap[Key comparable, Value any] struct {
+	MAP map[Key]Value
+	MUTEX sync.Mutex
+}
+
 func NewSyncMap[Key comparable, Value any]() SyncMap[Key, Value] {
 	return SyncMap[Key, Value]{
 		make(map[Key]Value),
@@ -20,9 +25,11 @@ func NewSyncMap[Key comparable, Value any]() SyncMap[Key, Value] {
 	}
 }
 
-type SyncMap[Key comparable, Value any] struct {
-	MAP map[Key]Value
-	MUTEX sync.Mutex
+func ISyncMap[K comparable, V any](mp map[K]V) (SyncMap[K, V]) {
+	return SyncMap[K, V]{
+		MAP: mp,
+		MUTEX: sync.Mutex{},
+	}
 }
 
 func (S *SyncMap[K, V]) Init() {
@@ -149,5 +156,22 @@ func (E *Event[T]) Alert(value T) {
 			*E = append((*E)[:i], (*E)[i+1:]...)
 		}
 	}
+}
+
+type SIntType  interface{int | int8 | int16 | int32 | int64}
+type UIntType  interface{uint | uint8 | uint16 | uint32 | uint64}
+type IntType  interface{SIntType | UIntType}
+type FloatType  interface{float32 | float64}
+type NumberType  interface{IntType | FloatType}
+
+
+func Min[V NumberType](a, b V) (V) {
+	if (a < b) {return a}
+	return b
+}
+
+func Max[V NumberType](a, b V) (V) {
+	if (a > b) {return a}
+	return b
 }
 
