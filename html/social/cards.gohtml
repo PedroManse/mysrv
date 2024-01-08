@@ -3,9 +3,11 @@
 <head>
 	<link href="/files/css/social/feed.css" rel="stylesheet" type="text/css">
 	<link href="/files/css/social/card.css" rel="stylesheet" type="text/css">
+	<script src="https://unpkg.com/htmx.org@1.9.10"></script>
 </head>
 <body>
 	{{ template "nav" . }}
+	{{ template "social" . }}
 	{{ range $_, $post := .logic.posts }}
 	{{if $post}}
 		<div class="post card" id="post-{{ $post.PostID }}">
@@ -21,7 +23,7 @@
 			</span>
 
 			<div class="content">
-				<a href="/social/post?postid={{$post.PostID}}" class="fill-div">
+				<a href="/social/posts?postid={{$post.PostID}}" class="fill-div">
 					{{ $post.PostHTML }}
 				</a>
 			</div>
@@ -42,8 +44,8 @@
 			<span class="commentCount" title="{{ $post.CommentCount.Load }} Comments">
 				{{ $post.CommentCount.Load }}
 			</span>
-				{{ $post.PostTime.Format "02/01/2006 03:04:05PM" }}
 			<span class="postTime">
+				{{ $post.PostTime.Format "02/01/2006 03:04:05PM" }}
 			</span>
 
 		</div>

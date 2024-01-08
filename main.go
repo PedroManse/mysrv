@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
 	. "mysrv/util"
 	"mysrv/service"
@@ -59,7 +58,6 @@ func LoginHandler(w HttpWriter, r HttpReq, info map[string]any) (render bool, re
 	if (!exists || acc.Hash != Hash(password)) {
 		ret["failed"] = true
 		ret["failReason"] = "Wrong password or email"
-		fmt.Println(ret, Hash(password), acc, exists)
 		return true, ret
 	}
 
@@ -140,7 +138,11 @@ func main() {
 	http.HandleFunc("/fspdb", service.PDBHandler)
 
 	// /social
-	http.Handle("/social/all", service.AllEndpoint)
+	http.Handle("/social/all", service.CardsEndpoint)
+	http.Handle("/social/posts", service.PostPageEndpoint)
+	http.Handle("/social/posts/create", service.CreatePostPageEndpoint)
+	http.Handle("/social/posts/react", service.ReactToPostEndpoint)
+	http.Handle("/social/comments/create", service.CreateCommentEndpoint)
 
 	FLog(FLOG_INFO, "Running\n")
 	panic(http.ListenAndServe("0.0.0.0:8080", nil))

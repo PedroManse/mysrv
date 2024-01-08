@@ -2,10 +2,6 @@
 div.post.card {
 	span.community {
 	}
-	span.community:before {
-		content: "| posted in: ";
-	}
-
 	div.content {
 		overflow-y: clip;
 		max-height: 150px;

@@ -42,15 +42,21 @@ span.reactions {
 	}
 }
 
-span.op {
-	.name { color: #4080FF; }
-	.email { color: #4F4F4F; }
-	.email:before { content: "<"; }
-	.email:after { content: ">"; }
-}
 
-div.post > span.op {
-	font-size: 18px;
+div.post {
+
+	span.op {
+		.name { color: #4080FF; }
+		.email { color: #4F4F4F; }
+		.email:before { content: "<"; }
+		.email:after { content: ">"; }
+	}
+	span.community:before {
+		content: "| posted in: ";
+	}
+	span.op {
+		font-size: 18px;
+	}
 }
 
 div.comment > span.op {

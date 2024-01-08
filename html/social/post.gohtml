@@ -3,7 +3,56 @@
 <head>
 	<link href="/files/css/social/feed.css" rel="stylesheet" type="text/css">
 	<link href="/files/css/social/post.css" rel="stylesheet" type="text/css">
+	<script src="https://unpkg.com/htmx.org@1.9.10"></script>
 </head>
 <body>
 	{{ template "nav" . }}
+	{{ template "social" . }}
+	{{ if .logic.error }}
+		<h1>{{.logic.error}}</h1>
+	{{ else }}
+		<div class="post page" id="post-{{ .logic.post.PostID }}">
+			<span class="op">
+				<span class="name">{{.logic.post.Poster.Name}}</span>
+				<span class="email">{{.logic.post.Poster.Email}}</span>
+			</span>
+			<span class="community" title="{{.logic.post.Community.Description}}">
+				<a href="/social/community?communityid={{.logic.post.Community.CommunityID}}">
+					{{.logic.post.Community.Name}}
+				</a>
+			</span>
+
+			<div class="content">
+				{{ .logic.post.PostHTML }}
+			</div>
+			{{ $userReaction := .logic.post.Reactions.GetI .acc.id }}
+			<span id="reactions" class="reactions">
+				<span class="reactionCount">
+					<span class="likes"> {{ .logic.post.LikeCount.Load }} </span>
+					<span class="dislikes"> {{ .logic.post.DislikeCount.Load }} </span>
+				</span>
+				<span class="react">
+					{{ range $i, $info := .allreactions }}
+						{{ $info.HTML $userReaction $.logic.post.PostID }}
+					{{ end }}
+				</span>
+			</span>
+			<span class="commentCount" title="{{ .logic.post.CommentCount.Load }} Comments">
+				{{ .logic.post.CommentCount.Load }}
+			</span>
+			<span class="postTime">
+				{{ .logic.post.PostTime.Format "02/01/2006 03:04:05PM" }}
+			</span>
+		</div>
+		<div class="comments">
+			{{ range $i, $comment := .logic.post.Comments }}
+				{{ $userReaction := $comment.Reactions.GetI $.acc.id }}
+				{{ $comment.HTML $userReaction $.acc.id }}
+			{{ end }}
+			<form method="POST" action="/social/comments/create?postid={{.logic.post.PostID}}">
+				<textarea name="commentText"></textarea>
+				<button>Comment!</button>
+			</form>
+		</div>
+	{{ end }}
 </body>

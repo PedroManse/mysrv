@@ -1,0 +1,13 @@
+<span class="reactions">
+	{{ $userReaction := .logic.post.Reactions.GetI .logic.query.AccID }}
+	<span class="reactionCount">
+		<span class="likes"> {{ .logic.post.LikeCount.Load }} </span>
+		<span class="dislikes"> {{ .logic.post.DislikeCount.Load }} </span>
+	</span>
+	<span class="react">
+		{{ range $i, $info := .allreactions }}
+			{{ $info.HTML $userReaction $.logic.post.PostID }}
+		{{ end }}
+	</span>
+</span>
+

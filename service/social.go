@@ -9,7 +9,8 @@ import (
 	"html/template"
 	"github.com/gomarkdown/markdown"
 	"strconv"
-	"io"
+	"sort"
+	"net/http"
 )
 
 /*
@@ -82,16 +83,38 @@ CREATE TABLE IF NOT EXISTS social_comment_reaction (
 );
 `
 
-var AllEndpoint = LogicPage(
+var CardsEndpoint = LogicPage(
 	"html/social/cards.gohtml",
-	map[string]any{
-		"allreactions":ReactionsInfo,
-	},
-	[]GOTMPlugin{
-		GOTM_account,
-		GOTM_mustacc,
-	},
+	map[string]any{ "allreactions":ReactionsInfo, },
+	[]GOTMPlugin{ GOTM_account, GOTM_mustacc },
 	postsEndpoint,
+)
+
+var PostPageEndpoint = LogicPage(
+	"html/social/post.gohtml",
+	map[string]any{ "allreactions":ReactionsInfo, },
+	[]GOTMPlugin{ GOTM_account, GOTM_mustacc },
+	postEndpoint,
+)
+
+var CreatePostPageEndpoint = LogicPage(
+	"html/social/createpost.gohtml",
+	nil,
+	[]GOTMPlugin{ GOTM_account, GOTM_mustacc },
+	createpostEndpoint,
+)
+
+var ReactToPostEndpoint = LogicPage(
+	"templates/social/reactions.gohtml",
+	map[string]any{ "allreactions":ReactionsInfo, },
+	[]GOTMPlugin{ GOTM_account, GOTM_mustacc },
+	reactToPostEndpoint,
+)
+
+var CreateCommentEndpoint = LogicPage(
+	"html/null.gohtml", nil,
+	[]GOTMPlugin{ GOTM_account, GOTM_mustacc },
+	createCommentEndpoint,
 )
 
 type SocialQuery struct {
@@ -122,99 +145,95 @@ func prelude(w HttpWriter, r HttpReq, info map[string]any) (acc *Account, query 
 	return
 }
 
+func createCommentEndpoint( w HttpWriter, r HttpReq, info map[string]any) (render bool, addinfo any) {
+	acc, query, ok := prelude(w, r, info)
+	if (!ok) {return true, map[string]any{"error":"Invalid Account"}}
+	cmnt := IDToComment.GetI(query.CommentID)
+	post, ok := IDToPost.Get(query.PostID)
+	if (!ok) {return true, map[string]any{"error":"Invalid PostID"}}
+	commentText := r.FormValue("commentText")
+	//TODO: better tests
+	if (commentText == "") {
+		return true, map[string]any{"error":"Comment with no body"}
+	}
+
+	createComment(acc, commentText, post, cmnt)
+	http.Redirect(w, r, fmt.Sprintf("/social/posts?postid=%d", query.PostID), http.StatusFound)
+	return false, nil
+}
+//(creator *Account, commentText string, parentPost *Post, parentComment *Comment)
+
+func reactToPostEndpoint( w HttpWriter, r HttpReq, info map[string]any) (render bool, addinfo any) {
+	_, query, ok := prelude(w, r, info)
+	if (!ok) {return true, map[string]any{"error":"Invalid Account"}}
+	post, ok := IDToPost.Get(query.PostID)
+	if (!ok) {return true, map[string]any{"error":"Invalid PostID"}}
+	if (r.Method == "POST") {
+		post.React( query.AccID, query.Reaction )
+	} else {
+		//TODO actually delete reaction
+		post.React( query.AccID, 0 )
+	}
+	return true, map[string]any{
+		"post":post,
+		"query":query,
+	}
+}
+
+func createpostEndpoint(w HttpWriter, r HttpReq, info map[string]any) (render bool, addinfo any) {
+	acc, query, ok := prelude(w, r, info)
+	if (!ok) {return true, map[string]any{"error":"Invalid Account"}}
+	if (r.Method == "GET") {
+		return true, map[string]any{}
+	} else if (r.Method == "POST") {
+		cid := query.CommunityID
+		txt := r.FormValue("postText")
+		comm, ok := IDToCommunity.Get(cid)
+		if (!ok) {return true, map[string]any{"error":"Invalid Community"}}
+
+		fmt.Println(cid)
+		fmt.Println(txt)
+		pid := createPost(acc, txt, comm).PostID
+		http.Redirect(w, r, fmt.Sprintf("/social/posts?postid=%d", pid), http.StatusFound)
+		return false, nil
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		return false, nil
+	}
+}
+
+func postEndpoint(w HttpWriter, r HttpReq, info map[string]any) (render bool, addinfo any) {
+	_, query, ok := prelude(w, r, info)
+	if (!ok) {return true, map[string]any{"error":"Invalid Account"}}
+	pid := query.PostID
+	P, ok := IDToPost.Get(pid)
+	if (!ok) {return true, map[string]any{"error":"Invalid PostId"}}
+	return true, map[string]any{"post":P}
+}
+
 func postsEndpoint(w HttpWriter, r HttpReq, info map[string]any) (render bool, addinfo any) {
 	_, query, ok := prelude(w, r, info)
 	if (!ok) {return}
 
-	var sortedPosts = _AllSorted[query.UseSort]
-	pcount := Min(int(query.PostCount), len(sortedPosts))
-	torender := sortedPosts[:pcount]
-	//var i int64 = 0
+	torender := []*Post{}
+	var i int64 = 0
 	// pre-sort by time; gather only PostCount
-	//for post := range IDToPost.IterValues() {
-	//	torender = append(torender, post)
-	//	i++
-	//}
+	for post := range IDToPost.IterValues() {
+		torender = append(torender, post)
+		i++
+	}
+	sortedPosts := SortPosts(query.UseSort, torender)
+	sortedPosts = sortedPosts[:Min(int(query.PostCount), len(sortedPosts))]
+
 	return true, map[string]any{
 		"query": query,
-		"posts": torender,
+		"posts": sortedPosts,
 	}
-
-	//sp := SortedPosts{torender, query.UseSort}
-	//sort.Sort(sp)
-	//if (int64(len(torender)) > query.PostCount) {
-	//	torender = torender[:query.PostCount]
-	//}
-
-	//return true, map[string]any{
-	//	"query": query,
-	//	"posts": torender,
-	//}
-}
-
-
-var PostPageTemplate = template.Must(template.New("Post.Page").Parse(`
-<div class="post page" id="post-{{ .post.PostID }}">
-	<span class="op">
-		<span class="name">{{.post.Poster.Name}}</span>
-		<span class="email">{{.post.Poster.Email}}</span>
-	</span>
-	<div class="content">
-		{{ .post.PostHTML }}
-	</div>
-	{{ $userReaction := .post.Reactions.GetI .acc.ID }}
-	<div id="reactions" class="reactions">
-		<span class="reactionCount">
-			<span class="likes"> {{ .post.LikeCount.Load }} </span>
-			<span class="dislikes"> {{ .post.DislikeCount.Load }} </span>
-		</span>
-		<span class="react">
-			{{ range $i, $info := .allreactions }}
-				{{ $info.HTML $userReaction $.post.PostID }}
-			{{ end }}
-		</span>
-		<span class="commentCount">
-		{{ .post.CommentCount.Load }}
-		</span>
-		<div class="comments">
-			{{ range $i, $comment := .post.Comments }}
-				{{ $userReaction := $comment.Reactions.GetI $.acc.ID }}
-				{{ $comment.HTML $userReaction $.acc.ID }}
-			{{ end }}
-		</div>
-	</div>
-</div>
-`))
-
-func (P *Post) HTMLPage(w io.Writer, viewer *Account) {
-	e := PostPageTemplate.Execute(w, map[string]any{
-	"allreactions":ReactionsInfo,
-	"post":*P,
-	"acc":viewer,
-})
-	if (e!=nil) { panic(e) }
 }
 
 func MDToHTML(MD string) (HTML template.HTML) {
 	return template.HTML(string(markdown.ToHTML([]byte(MD), nil, nil)))
 }
-
-var (
-	_AllSorted = [_TotalSortMethods][]*Post{
-		[]*Post{}, []*Post{}, []*Post{},
-		[]*Post{}, []*Post{}, []*Post{},
-		[]*Post{}, []*Post{}, []*Post{},
-	}
-	SortedPosts_Newest = &_AllSorted[0]
-	SortedPosts_Oldest = &_AllSorted[1]
-	SortedPosts_Comments = &_AllSorted[2]
-	SortedPosts_Likes = &_AllSorted[3]
-	SortedPosts_Dislikes = &_AllSorted[4]
-	SortedPosts_Divided = &_AllSorted[5]
-	SortedPosts_United = &_AllSorted[6]
-	SortedPosts_UnitedLove = &_AllSorted[7]
-	SortedPosts_UnitedHate = &_AllSorted[8]
-)
 
 type SortMethod = int64
 const (
@@ -228,11 +247,7 @@ const (
 	SortUnited // LikeCount <<>> DislikeCount
 	SortUnitedLove // LikeCount >> DislikeCount
 	SortUnitedHate // LikeCount << DislikeCount
-	_TotalSortMethods = iota-1 // 10
 )
-
-type SortSpot [_TotalSortMethods]int
-type SortCompares [_TotalSortMethods]bool
 
 var SortNameToID = ISyncMap(map[string]SortMethod {
 	"Newest":         SortNewest,
@@ -245,80 +260,54 @@ var SortNameToID = ISyncMap(map[string]SortMethod {
 	"MostUnitedLove": SortUnitedLove,
 	"MostUnitedHate": SortUnitedHate,
 })
-var SortIDToName = RevertMap(SortNameToID.AMap())
 
-func PlaceInSorted(newpost *Post) {
-	sspt := FindSpots(newpost)
-	for SortType, spot := range sspt {
-		if (spot == 0) {
-			_AllSorted[SortType] = append( []*Post{newpost}, _AllSorted[SortType]...)
-		} else if (spot == len(_AllSorted[SortType])) {
-			_AllSorted[SortType] = append( _AllSorted[SortType], newpost)
-		} else {
-			_AllSorted[SortType] = append(
-				append(_AllSorted[SortType][:spot], newpost),
-				_AllSorted[SortType][spot:]...,
-			)
-		}
-	}
-	newpost.SortingSpots = sspt
+func SortPosts(UseSort SortMethod, PostsToSort []*Post) []*Post {
+	sp := SortedPosts{PostsToSort, UseSort}
+	sort.Sort(sp)
+	return PostsToSort
 }
 
-//func UpdateStop(sspt SortSpot)
-
-func FindSpots(newpost *Post) (sspt SortSpot) {
-	var scmp SortCompares
-	var sptFound SortCompares
-	for i:=0;i<len(_AllSorted[_TotalSortMethods-1]);i++ {
-		scmp = ComparePosts(newpost, i)
-		for SortType, IsBefore := range scmp {
-			if (IsBefore && !sptFound[SortType]) {
-				sptFound[SortType] = true
-				sspt[SortType] = i
-			}
-		}
-	}
-	for i:=0;i<_TotalSortMethods;i++ {
-		if (!sptFound[i]) {
-			sspt[i] = len(_AllSorted[_TotalSortMethods-1])
-		}
-	}
-	return
+type SortedPosts struct {
+	PostsToRender []*Post
+	UseSort SortMethod
 }
 
-// check if PostA is more important than PostB
-func ComparePosts(PostA *Post, PostBIndex int) (scmp SortCompares) {
-	//assert PostA && PostB != nil
+func (S SortedPosts) Len() (int) { return len(S.PostsToRender) }
+func (S SortedPosts) Swap(i, j int) {
+	S.PostsToRender[i], S.PostsToRender[j] = S.PostsToRender[j], S.PostsToRender[i]
+}
+func (S SortedPosts) Less(i, j int) bool {
+	PostA := S.PostsToRender[i]
+	PostB := S.PostsToRender[j]
+	if (PostB == nil) { return false }
+	if (PostA == nil) { return true }
 
 	//TODO get united/diveded ratio
-	SPosts := [_TotalSortMethods]*Post {
-		(*SortedPosts_Newest    )[PostBIndex],
-		(*SortedPosts_Oldest    )[PostBIndex],
-		(*SortedPosts_Comments  )[PostBIndex],
-		(*SortedPosts_Likes     )[PostBIndex],
-		(*SortedPosts_Dislikes  )[PostBIndex],
-		(*SortedPosts_Divided   )[PostBIndex],
-		(*SortedPosts_United    )[PostBIndex],
-		(*SortedPosts_UnitedLove)[PostBIndex],
-		(*SortedPosts_UnitedHate)[PostBIndex],
+	switch (S.UseSort) {
+	default:
+		fallthrough
+	case SortNewest:
+		return PostA.PostTime.After(PostB.PostTime)
+	case SortOldest:
+		return PostA.PostTime.Before(PostB.PostTime)
+	case SortComments:
+		return PostA.CommentCount.Load() > PostB.CommentCount.Load()
+	case SortLikes:
+		return PostA.LikeCount.Load() > PostB.LikeCount.Load()
+	case SortDislikes:
+		return PostA.DislikeCount.Load() > PostB.DislikeCount.Load()
+	case SortDivided:
+		return PostA.DislikeCount.Load() > PostB.DislikeCount.Load()
+	case SortUnited:
+		return PostA.DislikeCount.Load() > PostB.DislikeCount.Load()
+	case SortUnitedLove:
+		return PostA.DislikeCount.Load() > PostB.DislikeCount.Load()
+	case SortUnitedHate:
+		return PostA.DislikeCount.Load() > PostB.DislikeCount.Load()
 	}
-	scmp[0] = PostA.PostTime.After      ( SPosts[0].PostTime )
-	scmp[1] = PostA.PostTime.Before     ( SPosts[1].PostTime )
-	scmp[2] = PostA.CommentCount.Load() > SPosts[2].CommentCount.Load()
-	scmp[3] = PostA.LikeCount.Load()    > SPosts[3].LikeCount.Load()
-	scmp[4] = PostA.DislikeCount.Load() > SPosts[4].DislikeCount.Load()
-	scmp[5] = PostA.DislikeCount.Load() > SPosts[5].DislikeCount.Load()
-	scmp[6] = PostA.DislikeCount.Load() > SPosts[6].DislikeCount.Load()
-	scmp[7] = PostA.DislikeCount.Load() > SPosts[7].DislikeCount.Load()
-	scmp[8] = PostA.DislikeCount.Load() > SPosts[8].DislikeCount.Load()
-	return
 }
 
 func DebugSocial() {
-	for SortID, plist := range _AllSorted {
-		fmt.Printf("%s:%v\n", SortIDToName[int64(SortID+1)], plist)
-	}
-	//op := EmailToAccount.GetI("pedro@manse.dev")
 }
 
 type ReactionType = uint64
@@ -334,14 +323,21 @@ type ReactionInfo struct {
 func (R ReactionInfo) HTML(selected uint64, postid int64) (template.HTML) {
 	if (R.ID == 0) {return ""}
 	class:="notSelected"
+	action:="hx-post"
 	if selected == R.ID {
 		class="selected"
+		action="hx-delete"
 	}
 	return template.HTML(fmt.Sprintf(`
-	<button title=%q style=%q class="reaction %s" hx-post="/social/post/react/?reaction=%d&postid=%d">
+	<button
+		title=%q style=%q class="reaction %s"
+		%s="/social/posts/react?reaction=%d&postid=%d"
+		hx-target="#post-%d > span.reactions"
+		hx-swap="outerHTML"
+	>
 		<img src=%q alt=%q>
 	</button>
-	`, R.Name, R.AltStyle, class, R.ID, postid, R.Img, R.Alt) )
+	`, R.Name, R.AltStyle, class, action, R.ID, postid, postid, R.Img, R.Alt) )
 }
 
 const (
@@ -397,7 +393,6 @@ type Post struct {
 	LikeCount *atomic.Uint64
 	DislikeCount *atomic.Uint64
 	Reactions *SyncMap[int64, ReactionType]
-	SortingSpots SortSpot
 }
 
 type Comment struct {
@@ -472,30 +467,16 @@ var (
 	CIDToSubs SyncMap[*Community, []*Account]
 )
 
-// listeners
-var (
-	LoadPostEvent Event[*Post] // _loadposts
-	NewPostEvent Event[*Post] // createPost
-	InstancePostEvent Event[*Post] // _loadposts || createPost
-)
-
-func InstancePost(P *Post) (stopListener bool) {
-	IDToPost.Set(P.PostID, P)
-	P.Community.Posts = append(P.Community.Posts, P)
-	PlaceInSorted(P)
-	return
-}
-
 func init() {
 	SQLInitScript( "social#create tables", socialSQLTables )
 	SQLInitFunc( "social#load", loadSQL )
 
-	InstancePostEvent.Listen(InstancePost)
 	IDToPost.Init()
 	IDToComment.Init()
 	IDToCommunity.Init()
 	UIDToSubs.Init()
 	CIDToSubs.Init()
+	//CommentToPost.Init()
 }
 
 func ddprt[A any](a *A) {
@@ -507,27 +488,42 @@ func dprt[A any](a *A) {
 }
 
 func (C *Comment) React(accID int64, reaction ReactionType) {
-	e, _ := SQLDo("service/social.(*Comment).React", `
-	INSERT INTO social_comment_reaction
-		(commentID, accID, action)
-	VALUES
-		(?, ?, ?)
-	ON CONFLICT
-		UPDATE action=?;`,
-	C.CommentID, accID, reaction, reaction)
-	if (e != nil) {panic(e)}
-}
-
-func (P *Post) React(accID int64, reaction ReactionType) {
-	e, _ := SQLDo("service/social.(*Post).React", `
-	INSERT INTO social_post_reaction
+	_, e := SQLDo("service/social.(*Comment).React", `
+	INSERT OR REPLACE INTO social_post_reaction
 		(postID, accID, action)
 	VALUES
-		(?, ?, ?)
-	ON CONFLICT
-		UPDATE action=?;`,
-	P.PostID, accID, reaction, reaction)
+		(?, ?, ?);`,
+	C.CommentID, accID, reaction)
 	if (e != nil) {panic(e)}
+	C.Reactions.Set(accID, reaction)
+}
+
+//TODO unreact
+func (P *Post) React(accID int64, reaction ReactionType) {
+	_, e := SQLDo("service/social.(*Post).React", `
+	INSERT OR REPLACE INTO social_post_reaction
+		(postID, accID, action)
+	VALUES
+		(?, ?, ?);`,
+	P.PostID, accID, reaction)
+	if (e != nil) {
+		fmt.Println(e)
+		panic(e)
+	}
+	oldr, change := P.Reactions.Get(accID)
+	if (change) {
+		if (ReactionsInfo[oldr].MeansHappy) {
+			P.LikeCount.Add(^uint64(0))
+		} else {
+			P.DislikeCount.Add(^uint64(0))
+		}
+	}
+	P.Reactions.Set(accID, reaction)
+	if (ReactionsInfo[reaction].MeansHappy) {
+		P.LikeCount.Add(1)
+	} else {
+		P.DislikeCount.Add(1)
+	}
 }
 
 func createCommunity(creator *Account, name string, description string) (c *Community) {
@@ -612,7 +608,6 @@ func createPost(creator *Account, PostText string, comm *Community) *Post {
 	PostId, _ := r.LastInsertId()
 	var reactions SyncMap[int64, ReactionType]
 	reactions.Init()
-	// instance post
 	p := &Post{
 		PostId, creator, comm,
 		PostText,
@@ -623,11 +618,7 @@ func createPost(creator *Account, PostText string, comm *Community) *Post {
 		&atomic.Uint64{},
 		&atomic.Uint64{},
 		&reactions,
-		SortSpot{},
 	}
-	NewPostEvent.Alert(p)
-	InstancePostEvent.Alert(p)
-
 	IDToPost.Set(PostId, p)
 	comm.Posts = append(comm.Posts, p)
 	return p
@@ -825,7 +816,6 @@ FROM
 		atomicCommentCount := atomic.Uint64{}
 		atomicCommentCount.Store(commentCount)
 		reactions := NewSyncMap[int64, ReactionType]()
-		// instance post
 		p := &Post{
 			PostID, Poster, Comm,
 			PostText,
@@ -836,11 +826,7 @@ FROM
 			&atomic.Uint64{},
 			&atomic.Uint64{},
 			&reactions,
-			SortSpot{},
 		}
-		LoadPostEvent.Alert(p)
-		InstancePostEvent.Alert(p)
-
 		IDToPost.Set(PostID, p)
 		Comm.Posts = append(Comm.Posts, p)
 	}
