@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"sync/atomic"
 	"html/template"
+	"html"
 	"github.com/gomarkdown/markdown"
 	"strconv"
 	"sort"
@@ -105,10 +106,17 @@ var CreatePostPageEndpoint = LogicPage(
 )
 
 var ReactToPostEndpoint = LogicPage(
-	"templates/social/reactions.gohtml",
+	"html/social/post-reactions.gohtml",
 	map[string]any{ "allreactions":ReactionsInfo, },
 	[]GOTMPlugin{ GOTM_account, GOTM_mustacc },
 	reactToPostEndpoint,
+)
+
+var ReactToCommentEndpoint = LogicPage(
+	"html/social/comment-reactions.gohtml",
+	map[string]any{ "allreactions":ReactionsInfo},
+	[]GOTMPlugin{ GOTM_account, GOTM_mustacc },
+	reactToCommentEndpoint,
 )
 
 var CreateCommentEndpoint = LogicPage(
@@ -161,7 +169,23 @@ func createCommentEndpoint( w HttpWriter, r HttpReq, info map[string]any) (rende
 	http.Redirect(w, r, fmt.Sprintf("/social/posts?postid=%d", query.PostID), http.StatusFound)
 	return false, nil
 }
-//(creator *Account, commentText string, parentPost *Post, parentComment *Comment)
+
+func reactToCommentEndpoint( w HttpWriter, r HttpReq, info map[string]any) (render bool, addinfo any) {
+	_, query, ok := prelude(w, r, info)
+	if (!ok) {return true, map[string]any{"error":"Invalid Account"}}
+	comment, ok := IDToComment.Get(query.CommentID)
+	if (!ok) {return true, map[string]any{"error":"Invalid PostID"}}
+	if (r.Method == "POST") {
+		comment.React( query.AccID, query.Reaction )
+	} else {
+		//TODO actually delete reaction
+		comment.React( query.AccID, 0 )
+	}
+	return true, map[string]any{
+		"comment":comment,
+		"query":query,
+	}
+}
 
 func reactToPostEndpoint( w HttpWriter, r HttpReq, info map[string]any) (render bool, addinfo any) {
 	_, query, ok := prelude(w, r, info)
@@ -232,7 +256,7 @@ func postsEndpoint(w HttpWriter, r HttpReq, info map[string]any) (render bool, a
 }
 
 func MDToHTML(MD string) (HTML template.HTML) {
-	return template.HTML(string(markdown.ToHTML([]byte(MD), nil, nil)))
+	return template.HTML(string(markdown.ToHTML([]byte(html.EscapeString(MD)), nil, nil)))
 }
 
 type SortMethod = int64
@@ -307,8 +331,7 @@ func (S SortedPosts) Less(i, j int) bool {
 	}
 }
 
-func DebugSocial() {
-}
+func DebugSocial() { }
 
 type ReactionType = uint64
 type ReactionInfo struct {
@@ -320,7 +343,23 @@ type ReactionInfo struct {
 	AltStyle string
 }
 
+func HTMLCommentReactions(selected uint64, commentid int64) (h template.HTML) {
+	hm := ""
+	for _, rct := range ReactionsInfo {
+		hm+=rct.HTMLstrComment(selected, commentid)
+	}
+	return template.HTML(hm)
+}
+
 func (R ReactionInfo) HTML(selected uint64, postid int64) (template.HTML) {
+	return template.HTML(R.HTMLstr(selected, postid))
+}
+
+func (R ReactionInfo) HTMLComment(selected uint64, commentid int64) (template.HTML) {
+	return template.HTML(R.HTMLstrComment(selected, commentid))
+}
+
+func (R ReactionInfo) HTMLstr(selected uint64, postid int64) (string) {
 	if (R.ID == 0) {return ""}
 	class:="notSelected"
 	action:="hx-post"
@@ -328,7 +367,7 @@ func (R ReactionInfo) HTML(selected uint64, postid int64) (template.HTML) {
 		class="selected"
 		action="hx-delete"
 	}
-	return template.HTML(fmt.Sprintf(`
+	return fmt.Sprintf(`
 	<button
 		title=%q style=%q class="reaction %s"
 		%s="/social/posts/react?reaction=%d&postid=%d"
@@ -337,7 +376,35 @@ func (R ReactionInfo) HTML(selected uint64, postid int64) (template.HTML) {
 	>
 		<img src=%q alt=%q>
 	</button>
-	`, R.Name, R.AltStyle, class, action, R.ID, postid, postid, R.Img, R.Alt) )
+	`, R.Name, R.AltStyle, class,
+		action, R.ID, postid,
+		postid,
+		R.Img, R.Alt,
+	)
+}
+
+func (R ReactionInfo) HTMLstrComment(selected uint64, commentid int64) (string) {
+	if (R.ID == 0) {return ""}
+	class:="notSelected"
+	action:="hx-post"
+	if selected == R.ID {
+		class="selected"
+		action="hx-delete"
+	}
+	return fmt.Sprintf(`
+	<button
+		title=%q style=%q class="reaction %s"
+		%s="/social/comments/react?reaction=%d&commentid=%d"
+		hx-target="#comment-%d > span.reactions"
+		hx-swap="outerHTML"
+	>
+		<img src=%q alt=%q>
+	</button>
+	`, R.Name, R.AltStyle, class,
+		action, R.ID, commentid,
+		commentid,
+		R.Img, R.Alt,
+	)
 }
 
 const (
@@ -353,22 +420,22 @@ const (
 
 var ReactionsInfo = [...]ReactionInfo{
 	ReactionLike: ReactionInfo{ ReactionLike, "Like", true,
-		"/files/img/reaction_like", "↑", "color: green;",
+		"/files/img/social/reaction_like", "↑", "color: green;",
 	},
 	ReactionDislike: ReactionInfo{ ReactionDislike, "Dislike", false,
-		"/files/img/reaction_dislike", "↓", "color: red;",
+		"/files/img/social/reaction_dislike", "↓", "color: red;",
 	},
 	ReactionLove: ReactionInfo{ ReactionLove, "Love", true,
-		"/files/img/reaction_love", "<3", "color: pink;",
+		"/files/img/social/reaction_love", "<3", "color: pink;",
 	},
 	ReactionHate: ReactionInfo{ ReactionHate, "Hate", false,
-		"/files/img/reaction_hate", "`^´", "color: red;",
+		"/files/img/social/reaction_hate", "`^´", "color: red;",
 	},
 	ReactionLaugh: ReactionInfo{ ReactionLaugh, "Laugh", true,
-		"/files/img/reaction_laugh", "XD", "color: white;",
+		"/files/img/social/reaction_laugh", "XD", "color: white;",
 	},
 	ReactionCry: ReactionInfo{ ReactionCry, "Cry", false,
-	"/files/img/reaction_cry", ":(", "color: blue;",
+		"/files/img/social/reaction_cry", ":(", "color: blue;",
 	},
 }
 
@@ -393,6 +460,7 @@ type Post struct {
 	LikeCount *atomic.Uint64
 	DislikeCount *atomic.Uint64
 	Reactions *SyncMap[int64, ReactionType]
+	// ReactionCount for specific analytics
 }
 
 type Comment struct {
@@ -408,6 +476,7 @@ type Comment struct {
 	LikeCount *atomic.Uint64
 	DislikeCount *atomic.Uint64
 	Reactions *SyncMap[int64, ReactionType]
+	// ReactionCount for specific analytics
 }
 
 func (C Comment) HTML(reaction uint64, viewer int64) template.HTML {
@@ -415,8 +484,15 @@ func (C Comment) HTML(reaction uint64, viewer int64) template.HTML {
 	<div class="comment" id="comment-%d">
 	<span class="op">
 		<span class="name">%s</span>
-	</span>
 		<span class="email">%s</span>
+	</span>
+	<span id="reactions" class="reactions">
+		<span class="reactionCount">
+			<span class="likes"> %d </span>
+			<span class="dislikes"> %d </span>
+		</span>
+		<span class="react"> %s </span>
+	</span>
 	<div class="content">
 		%s
 	</div>
@@ -424,7 +500,9 @@ func (C Comment) HTML(reaction uint64, viewer int64) template.HTML {
 	</div>
 	`, C.CommentID,
 	C.Commenter.Name, C.Commenter.Email,
-	C.CommentText, C.HTMLChildren(viewer, 0),
+	C.LikeCount.Load(), C.DislikeCount.Load(),
+	HTMLCommentReactions(reaction, C.CommentID),
+	C.CommentHTML, C.HTMLChildren(viewer, 0),
 ))
 }
 
@@ -437,7 +515,11 @@ func (C Comment) HTMLChildren(viewer int64, depth int) string {
 	return `<div class="children">`+cum+`</div>`
 }
 
-func (C Comment) ChildHTML(reaction uint64, viewer int64, depth int) string {
+template.Must(template.New().Parse(`
+
+`))
+
+func (C Comment) ChildHTML(reaction uint64, viewer int64, depth int) string {,
 	return fmt.Sprintf(`
 	<div class="comment border_%d" id="comment-%d">
 	<span class="op">
@@ -451,7 +533,7 @@ func (C Comment) ChildHTML(reaction uint64, viewer int64, depth int) string {
 	</div>
 	`, (depth%4)+1, C.CommentID,
 	C.Commenter.Name, C.Commenter.Email,
-	C.CommentText, C.HTMLChildren(viewer, depth+1),
+	C.CommentHTML, C.HTMLChildren(viewer, depth+1),
 )
 }
 
@@ -489,13 +571,30 @@ func dprt[A any](a *A) {
 
 func (C *Comment) React(accID int64, reaction ReactionType) {
 	_, e := SQLDo("service/social.(*Comment).React", `
-	INSERT OR REPLACE INTO social_post_reaction
-		(postID, accID, action)
+	INSERT OR REPLACE INTO social_comment_reaction
+		(commentID, accID, action)
 	VALUES
 		(?, ?, ?);`,
 	C.CommentID, accID, reaction)
 	if (e != nil) {panic(e)}
-	C.Reactions.Set(accID, reaction)
+	oldr, change := C.Reactions.Get(accID)
+	if (change) {
+		if (ReactionsInfo[oldr].MeansHappy) {
+			C.LikeCount.Add(^uint64(0))
+		} else {
+			C.DislikeCount.Add(^uint64(0))
+		}
+	}
+	if (reaction == 0) {
+		C.Reactions.Unset(accID)
+	} else {
+		C.Reactions.Set(accID, reaction)
+		if (ReactionsInfo[reaction].MeansHappy) {
+			C.LikeCount.Add(1)
+		} else {
+			C.DislikeCount.Add(1)
+		}
+	}
 }
 
 //TODO unreact
@@ -518,11 +617,15 @@ func (P *Post) React(accID int64, reaction ReactionType) {
 			P.DislikeCount.Add(^uint64(0))
 		}
 	}
-	P.Reactions.Set(accID, reaction)
-	if (ReactionsInfo[reaction].MeansHappy) {
-		P.LikeCount.Add(1)
+	if (reaction == 0) {
+		P.Reactions.Unset(accID)
 	} else {
-		P.DislikeCount.Add(1)
+		P.Reactions.Set(accID, reaction)
+		if (ReactionsInfo[reaction].MeansHappy) {
+			P.LikeCount.Add(1)
+		} else {
+			P.DislikeCount.Add(1)
+		}
 	}
 }
 
@@ -645,7 +748,7 @@ func _createSoleComment(creator *Account, commentText string, parentPost *Post) 
 		&atomic.Uint64{},
 		&atomic.Uint64{},
 		&atomic.Uint64{},
-		&reactions,
+		NewSyncMap[int64, ReactionType](),
 	}
 	return c
 }
@@ -815,7 +918,6 @@ FROM
 		if (!ok) {return fmt.Errorf("Can't find community [%d]", communityID)}
 		atomicCommentCount := atomic.Uint64{}
 		atomicCommentCount.Store(commentCount)
-		reactions := NewSyncMap[int64, ReactionType]()
 		p := &Post{
 			PostID, Poster, Comm,
 			PostText,
@@ -825,7 +927,7 @@ FROM
 			&atomicCommentCount,
 			&atomic.Uint64{},
 			&atomic.Uint64{},
-			&reactions,
+			NewSyncMap[int64, ReactionType](),
 		}
 		IDToPost.Set(PostID, p)
 		Comm.Posts = append(Comm.Posts, p)
@@ -863,8 +965,6 @@ FROM
 		if (!ok) {return fmt.Errorf("Can't find commenter [%d]", commenterID)}
 		post, ok := IDToPost.Get(PostID)
 		if (!ok) {return fmt.Errorf("Can't find post for comment [%d]", PostID)}
-		var reactions SyncMap[int64, ReactionType]
-		reactions.Init()
 		atomicChildrenCount := atomic.Uint64{}
 		atomicChildrenCount.Store(childrenCount)
 		c := &Comment{
@@ -877,7 +977,7 @@ FROM
 			&atomicChildrenCount,
 			&atomic.Uint64{},
 			&atomic.Uint64{},
-			&reactions,
+			NewSyncMap[int64, ReactionType](),
 		}
 		if (parentCommentID != nil) {
 			setparent = append(setparent, ParentChild{commentID, *parentCommentID})

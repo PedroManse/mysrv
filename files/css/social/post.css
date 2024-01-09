@@ -12,3 +12,13 @@ div.post.page {
 	}
 }
 
+div.comments {
+	div.comment {
+		div.content {
+			p {
+				margin: 2px 0px 4px 3px;
+			}
+		}
+	}
+}
+

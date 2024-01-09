@@ -142,6 +142,7 @@ func main() {
 	http.Handle("/social/posts", service.PostPageEndpoint)
 	http.Handle("/social/posts/create", service.CreatePostPageEndpoint)
 	http.Handle("/social/posts/react", service.ReactToPostEndpoint)
+	http.Handle("/social/comments/react", service.ReactToCommentEndpoint)
 	http.Handle("/social/comments/create", service.CreateCommentEndpoint)
 
 	FLog(FLOG_INFO, "Running\n")

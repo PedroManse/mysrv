@@ -18,7 +18,14 @@ type SyncMap[Key comparable, Value any] struct {
 	MUTEX sync.Mutex
 }
 
-func NewSyncMap[Key comparable, Value any]() SyncMap[Key, Value] {
+func NewSyncMap[Key comparable, Value any]() *SyncMap[Key, Value] {
+	return &SyncMap[Key, Value]{
+		make(map[Key]Value),
+		sync.Mutex{},
+	}
+}
+
+func MakeSyncMap[Key comparable, Value any]() SyncMap[Key, Value] {
 	return SyncMap[Key, Value]{
 		make(map[Key]Value),
 		sync.Mutex{},
@@ -174,4 +181,34 @@ func Max[V NumberType](a, b V) (V) {
 	if (a > b) {return a}
 	return b
 }
+
+//type Monad[A any] struct { V *A }
+//
+//func NewMonad[A any]() (Monad[A]) {
+//	return Monad[A]{new(A)}
+//}
+//
+//func (M *Monad[A]) New() {
+//	M.V = new(A);
+//}
+//
+//func (M *Monad[A]) Set(v A) {
+//	M.V = &v
+//}
+//
+//func (M Monad[A]) Apply(fnc func(A)A) {
+//	if (M.V != nil) {
+//		*M.V = fnc(*M.V)
+//	}
+//}
+//
+//type MArray[A any] []Monad[A]
+//
+//func (M MArray[A]) Apply(fnc func(A)A) {
+//	for i := range M {
+//		if (M[i].V != nil) {
+//			*M[i].V = fnc(*M[i].V)
+//		}
+//	}
+//}
 
