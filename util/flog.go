@@ -82,7 +82,7 @@ func FLog(selectedAreas int, format string, stuff... any) {
 	if (format != "") {
 		text = fmt.Sprintf(format, stuff...)
 	}
-	fmttime := time.Now().Format("01/02 15:04:05")
+	fmttime := time.Now().Format("02/01/06 15:04:05")
 	fmt.Fprintf(os.Stderr, "[%v] %s: %s", fmttime, preamble, text)
 }
 
