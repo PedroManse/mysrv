@@ -331,7 +331,8 @@ func (S SortedPosts) Less(i, j int) bool {
 	}
 }
 
-func DebugSocial() { }
+func DebugSocial() {
+}
 
 type ReactionType = uint64
 type ReactionInfo struct {
@@ -420,22 +421,22 @@ const (
 
 var ReactionsInfo = [...]ReactionInfo{
 	ReactionLike: ReactionInfo{ ReactionLike, "Like", true,
-		"/files/img/social/reaction_like", "↑", "color: green;",
+		"/files/img/social/reaction_like.ico", "↑", "color: green;",
 	},
 	ReactionDislike: ReactionInfo{ ReactionDislike, "Dislike", false,
-		"/files/img/social/reaction_dislike", "↓", "color: red;",
+		"/files/img/social/reaction_dislike.ico", "↓", "color: red;",
 	},
 	ReactionLove: ReactionInfo{ ReactionLove, "Love", true,
-		"/files/img/social/reaction_love", "<3", "color: pink;",
+		"/files/img/social/reaction_love.ico", "<3", "color: pink;",
 	},
 	ReactionHate: ReactionInfo{ ReactionHate, "Hate", false,
-		"/files/img/social/reaction_hate", "`^´", "color: red;",
+		"/files/img/social/reaction_hate.ico", "`^´", "color: red;",
 	},
 	ReactionLaugh: ReactionInfo{ ReactionLaugh, "Laugh", true,
-		"/files/img/social/reaction_laugh", "XD", "color: white;",
+		"/files/img/social/reaction_laugh.ico", "XD", "color: white;",
 	},
 	ReactionCry: ReactionInfo{ ReactionCry, "Cry", false,
-		"/files/img/social/reaction_cry", ":(", "color: blue;",
+		"/files/img/social/reaction_cry.ico", ":(", "color: blue;",
 	},
 }
 
@@ -515,11 +516,7 @@ func (C Comment) HTMLChildren(viewer int64, depth int) string {
 	return `<div class="children">`+cum+`</div>`
 }
 
-template.Must(template.New().Parse(`
-
-`))
-
-func (C Comment) ChildHTML(reaction uint64, viewer int64, depth int) string {,
+func (C Comment) ChildHTML(reaction uint64, viewer int64, depth int) string {
 	return fmt.Sprintf(`
 	<div class="comment border_%d" id="comment-%d">
 	<span class="op">
