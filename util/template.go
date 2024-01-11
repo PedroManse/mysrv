@@ -3,6 +3,7 @@ package util
 import (
 	"html/template"
 	"net/http"
+	"io"
 )
 
 type HttpWriter = http.ResponseWriter
@@ -34,6 +35,10 @@ index := TemplatePage(
 
 type StaticFile struct {
 	Filename string
+}
+
+type TemplatedComponent struct {
+	Template *template.Template
 }
 
 type TemplatedPage struct {
@@ -125,3 +130,18 @@ func LogicPage(
 	}
 }
 
+func Component (
+	filename string,
+) TemplatedComponent {
+	tmpl := template.Must(template.ParseFiles(filename))
+	return TemplatedComponent{tmpl}
+}
+
+func (Tc TemplatedComponent) Render(w io.Writer, einfo any) {
+	Tc.Template.Execute(w, einfo)
+}
+
+func (Tc TemplatedComponent) RenderString(einfo any) (s string) {
+	panic("NOT IMPLEMENTED")
+	return ""
+}
