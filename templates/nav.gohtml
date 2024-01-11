@@ -43,25 +43,36 @@
 {{ define "nav acc" }}
 	<span style="float: right;">
 		{{ if .acc.ok }}
-		<p style="display: inline-block">
-			Olá {{.acc.name}}
-			<a href="/login">Change Account!</a>
-		</p>
-		{{ else }}
-		<p style="display: inline-block">
-			Olá
-			<a href="/login">Login!</a>
+			<p style="display: inline-block">
+				Olá {{.acc.name}}
+				<a href="/login">Change Account!</a>
+			</p>
+			{{ else }}
+			<p style="display: inline-block">
+				Olá, Faça <a href="/login">Login!</a> Para disponibilizar todas as área do site
 			</p>
 		{{ end }}
 	</span>
 {{ end }}
 
+{{ define "nav index" }}
+	<li><a href="/">Home</a></li>
+{{ end }}
+
 {{ define "nav chat" }}
-	<li><a href="/chat">Chat</a></li>
+	{{ if .acc.ok }}
+		<li><a href="/chat">Chat</a></li>
+	{{ else }}
+		<li>🔒<a href="/login">Chat</a></li>
+	{{ end }}
 {{ end }}
 
 {{ define "nav users" }}
-	<li><a href="/users">Users</a></li>
+	{{ if .acc.ok }}
+		<li><a href="/users">Users</a></li>
+	{{ else }}
+		<li>🔒<a href="/login">Users</a></li>
+	{{ end }}
 {{ end }}
 
 {{ define "nav ecb" }}
@@ -69,31 +80,54 @@
 {{ end }}
 
 {{ define "nav forms" }}
-	<li><a href="/forms">Forms</a></li>
-{{ end }}
-
-{{ define "nav index" }}
-	<li><a href="/">Home</a></li>
+	{{ if .acc.ok }}
+		<li><a href="/forms">Forms</a></li>
+	{{ else }}
+		<li>🔒<a href="/login">Forms</a></li>
+	{{ end }}
 {{ end }}
 
 {{ define "nav pdb" }}
-	<li><a href="/pdb">Personal DB</a></li>
+	{{ if .acc.ok }}
+		<li><a href="/pdb">Personal DB</a></li>
+	{{ else }}
+		<li>🔒<a href="/login">Personal DB</a></li>
+	{{ end }}
 {{ end }}
 
 {{ define "nav social" }}
-	<li><a href="/social/all">PostBoard</a></li>
+	{{ if .acc.ok }}
+		<li><a href="/social/all">PostBoard</a></li>
+	{{ else }}
+		<li>🔒<a href="/login">PostBoard</a></li>
+	{{ end }}
 {{ end }}
 
 {{ define "nav" }}
-		{{ template "top nav init" }}
-		{{ template "nav index" . }}
-		{{ template "nav chat" . }}
-		{{ template "nav users" . }}
-		{{ template "nav ecb" . }}
-		{{ template "nav forms" . }}
-		{{ template "nav pdb" . }}
-		{{ template "nav acc" . }}
-		{{ template "nav social" . }}
-		{{ template "top nav end" }}
+	{{ template "top nav init" }}
+
+	{{ template "nav index" . }}
+	{{ template "nav chat" . }}
+	{{ template "nav users" . }}
+	{{ template "nav ecb" . }}
+	{{ template "nav forms" . }}
+	{{ template "nav pdb" . }}
+	{{ template "nav social" . }}
+
+	{{ template "nav acc" . }}
+	{{ template "top nav end" }}
 {{ end }}
+
+
+{{ define "nav-login" }}
+	{{ template "top nav init" }}
+	{{ template "nav index" . }}
+	{{ template "nav chat" . }}
+	{{ template "nav users" . }}
+	{{ template "nav ecb" . }}
+	{{ template "nav forms" . }}
+	{{ template "nav pdb" . }}
+	{{ template "nav social" . }}
+	{{ template "top nav end" }}
+{{end}}
 

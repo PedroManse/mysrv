@@ -7,6 +7,7 @@ import (
 	"html"
 )
 
+//TODO
 var pastes = map[string]string{}
 
 func ECBHandler(w http.ResponseWriter, r *http.Request) {

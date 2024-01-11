@@ -9,7 +9,7 @@ import (
 type HttpWriter = http.ResponseWriter
 type HttpReq = *http.Request
 type Plugin = func(w HttpWriter, r HttpReq, info map[string]any) (render bool, addinfo any)
-// add "terminator" flag to plugin
+// TODO: add "terminator" flag to plugin
 // GOTM_mustacc is added as a guard, to relieve the
 // : programmer of the duty to check if the user is logged in
 // : plugins after GOTM_mustacc shoudln't be executed
@@ -19,21 +19,50 @@ type GOTMPlugin struct {
 }
 
 /* example
-
 func GOTM_example(w HttpWriter, r HttpReq, info map[string]any) any {
 	return 4
 }
 var GOTM_acc GOTMPlugin = {"acc", GOTM_example}
 
 index := TemplatePage(
-	"html/index.gohtml",
-	map[string]any{"server name":"my server!"},
-	{{"acc", GOTM_acc}, {"view", GOTM_view_counter}},
+	"html/index.gohtml", nil, {GOTM_acc},
 )
-
 */
 
-type StaticFile struct {
+// Content Server Creators
+// Static(File|Component)
+// (Dynamic|Templated(Logiced)?)(Plugged)?(Page|Component)
+
+// NOTE if the Content Server has a render engine, and info map
+// (map[string]any) can be provided (or may be nil). That info map will be
+// passed to the render engine as the root of information
+
+// Plugged defines if there should be an []GOTMPlugin to run before rendering.
+// NOTE GOTMPlugin can read/write to requests, read/write to the info map, stop
+// execution of futher plugins and disabled rendering for a request
+
+// Templated attaches a Template file to the Content Server
+// NOTE /templates/*.gohtml will be parsed before the template file
+// Logiced attaches a user defined function to the end of the PluginList
+// NOTE Logiced may be used even if Plugged is no specified
+
+// File, Component, Page don't modify the content server.
+// However, recomended usage for
+// - Page is to ACT upon some information from the client (and possibly render it).
+// - Component is to render information from the server.
+// - File is to to serve as is.
+// TL;DR
+// - Page: side-effects and render engine
+// - Component: render engine
+// - File: info as if
+
+type ContentServer = http.Handler
+
+func StaticFile(filename string) ContentServer {
+	return staticServer{filename}
+}
+
+type staticServer struct {
 	Filename string
 }
 
@@ -56,7 +85,7 @@ type LogicedPage struct {
 	Fn Plugin
 }
 
-func (s StaticFile) ServeHTTP (w HttpWriter, r HttpReq) {
+func (s staticServer) ServeHTTP (w HttpWriter, r HttpReq) {
 	http.ServeFile(w, r, s.Filename)
 }
 
@@ -91,30 +120,12 @@ func (s TemplatedPage) ServeHTTP (w HttpWriter, r HttpReq) {
 	}
 }
 
-func (s LogicedPage) ServeHTTP (w HttpWriter, r HttpReq) {
-	var render = true
-	var prender bool
-	for _, plug := range s.Plugins {
-		prender, s.Info[plug.Name] = plug.Plug(w, r, s.Info)
-		render = render&&prender
-	}
-	prender, s.Info["logic"] = s.Fn(w, r, s.Info)
-	render = render&&prender
-
-	if (render) {
-		e := s.Template.Execute(w, s.Info)
-		if (e != nil) {
-			panic(e)
-		}
-	}
-}
-
 func LogicPage(
 	filename string,
 	info map[string]any,
 	plugins []GOTMPlugin,
 	fn Plugin,
-) (LogicedPage) {
+) (TemplatedPage) {
 	if info == nil {
 		info = make(map[string]any)
 	}
@@ -125,15 +136,19 @@ func LogicPage(
 		).ParseGlob("templates/*.gohtml"),
 	)
 
-	return LogicedPage{
-		tmpl, info, plugins, fn,
+	return TemplatedPage{
+		tmpl, info, append(plugins, GOTMPlugin{"logic", fn}),
 	}
 }
 
 func Component (
 	filename string,
 ) TemplatedComponent {
-	tmpl := template.Must(template.ParseFiles(filename))
+	tmpl := template.Must(
+		template.Must(
+			template.ParseFiles(filename),
+		).ParseGlob("templates/*.gohtml"),
+	)
 	return TemplatedComponent{tmpl}
 }
 
@@ -145,3 +160,4 @@ func (Tc TemplatedComponent) RenderString(einfo any) (s string) {
 	panic("NOT IMPLEMENTED")
 	return ""
 }
+

@@ -119,8 +119,9 @@ var ReactToCommentEndpoint = LogicPage(
 	reactToCommentEndpoint,
 )
 
+//TODO: Dynaimc
 var CreateCommentEndpoint = LogicPage(
-	"html/null.gohtml", nil,
+	"html/sys/missing.gohtml", nil,
 	[]GOTMPlugin{ GOTM_account, GOTM_mustacc },
 	createCommentEndpoint,
 )
@@ -139,6 +140,7 @@ func prelude(w HttpWriter, r HttpReq, info map[string]any) (acc *Account, query 
 	r.ParseForm()
 	var accinf = info["acc"].(map[string]any)
 	var accid int64
+	//TODO: would not need to do this if plugin's terminator flag was implemented
 	if (accinf["ok"].(bool)) {
 		accid = accinf["id"].(int64)
 	} else {

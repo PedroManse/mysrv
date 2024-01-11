@@ -68,7 +68,7 @@ func LoginHandler(w HttpWriter, r HttpReq, info map[string]any) (render bool, re
 
 var ( // templated pages
 	index = LogicPage(
-		"html/index.gohtml", nil,
+		"html/sys/index.gohtml", nil,
 		[]GOTMPlugin{GOTM_account},
 		func (w HttpWriter, r HttpReq, info map[string]any) (bool, any) {
 			if (r.URL.Path != "/") { missing.ServeHTTP(w, r) }
@@ -76,39 +76,39 @@ var ( // templated pages
 		},
 	)
 	register = LogicPage(
-		"html/register.gohtml", nil,
+		"html/sys/register.gohtml", nil,
 		[]GOTMPlugin{GOTM_account},
 		CreateHandler,
 	)
 	login = LogicPage(
-		"html/login.gohtml", nil,
+		"html/sys/login.gohtml", nil,
 		[]GOTMPlugin{GOTM_account},
 		LoginHandler,
 	)
 
 	missing = TemplatePage(
-		"html/missing.gohtml", nil,
+		"html/sys/missing.gohtml", nil,
 		[]GOTMPlugin{GOTM_account, GOTM_urlInfo, GOTM_log},
 	)
 	users = TemplatePage(
-		"html/users.gohtml", nil,
+		"html/sys/users.gohtml", nil,
 		[]GOTMPlugin{GOTM_account, GOTM_accounts},
 	)
 	// must be logged in plugin
 	chat = TemplatePage(
-		"html/chat.gohtml", nil,
+		"html/chat/chat.gohtml", nil,
 		[]GOTMPlugin{GOTM_account, GOTM_mustacc},
 	)
 	ecb = TemplatePage(
-		"html/ecb.gohtml", nil,
+		"html/ecb/ecb.gohtml", nil,
 		[]GOTMPlugin{GOTM_account, GOTM_mustacc},
 	)
 	pdb = TemplatePage(
-		"html/pdb.gohtml", nil,
+		"html/pdb/pdb.gohtml", nil,
 		[]GOTMPlugin{GOTM_account, GOTM_mustacc, service.GOTM_pdbcopy},
 	)
 	forms = TemplatePage(
-		"html/forms.gohtml", nil,
+		"html/forms/forms.gohtml", nil,
 		[]GOTMPlugin{GOTM_account, GOTM_mustacc},
 	)
 )
@@ -120,24 +120,29 @@ func main() {
 
 	// site-wide service
 	http.Handle("/", index)
+	http.Handle("/users", users)
 	http.Handle("/login", login)
 	http.Handle("/register", register)
-	http.Handle("/favicon.ico", StaticFile{"./files/dice.ico"})
+	http.Handle("/favicon.ico", StaticFile("./files/dice.ico"))
 	http.Handle("/files/", http.StripPrefix("/files", http.FileServer(http.Dir("./files/"))))
 
-	// front-ends
-	http.Handle("/users", users)
+	// real-time WebSocket chat
 	http.Handle("/chat", chat)
-	http.Handle("/ecb", ecb)
-	http.Handle("/pdb", pdb)
-	http.Handle("/forms", forms)
-
-	// back-ends
 	http.Handle("/wschat", service.ChatServer)
+
+	// ephemeral public info
+	http.Handle("/ecb", ecb)
 	http.HandleFunc("/fsecb", service.ECBHandler)
+
+	// non-ephemeral private info
+	http.Handle("/pdb", pdb)
 	http.HandleFunc("/fspdb", service.PDBHandler)
 
-	// /social
+	// plataform to create and host <form>s
+	http.Handle("/forms", forms)
+	//TODO literally most parts
+
+	// social media
 	http.Handle("/social/all", service.CardsEndpoint)
 	http.Handle("/social/posts", service.PostPageEndpoint)
 	http.Handle("/social/posts/create", service.CreatePostPageEndpoint)
