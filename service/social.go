@@ -99,8 +99,7 @@ var PostPageEndpoint = LogicPage(
 )
 
 var CreatePostPageEndpoint = LogicPage(
-	"html/social/createpost.gohtml",
-	nil,
+	"html/social/createpost.gohtml", nil,
 	[]GOTMPlugin{ GOTM_account, GOTM_mustacc },
 	createpostEndpoint,
 )
@@ -119,9 +118,7 @@ var ReactToCommentEndpoint = LogicPage(
 	reactToCommentEndpoint,
 )
 
-//TODO: Dynaimc
-var CreateCommentEndpoint = LogicPage(
-	"html/sys/missing.gohtml", nil,
+var CreateCommentEndpoint = DynamicPage( nil,
 	[]GOTMPlugin{ GOTM_account, GOTM_mustacc },
 	createCommentEndpoint,
 )

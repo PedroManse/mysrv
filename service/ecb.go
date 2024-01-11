@@ -1,33 +1,50 @@
 package service
 
 import (
-	"net/http"
-	"fmt"
-	"mysrv/util"
-	"html"
+	. "mysrv/util"
+	"strconv"
+	"html/template"
 )
 
-//TODO
-var pastes = map[string]string{}
+var pastes = NewSyncMap[string, string]()
+var ECBEndpoint = TemplatePage(
+	"html/ecb/ecb.gohtml", nil,
+	[]GOTMPlugin{GOTM_account},
+)
 
-func ECBHandler(w http.ResponseWriter, r *http.Request) {
+var getRender = InlineComponent(`
+{{ if eq .ok true }}
+	<pre>{{.text}}</pre>
+{{ else }}
+	<h3>No such Paste "{{.id}}"</h3>
+{{ end }}
+`)
+var postRender = InlineComponent(`
+<h3>Paste "{{.id}}" created</h3>
+<pre>{{.text}}</pre>
+`)
+
+
+func ECBHandler(w HttpWriter, r HttpReq) {
 	if (r.Method == "GET") {
-		q := r.URL.Query()
-		id := q.Get("pastename")
-		text, ok := pastes[id]
-		if (!q.Has("pastename") || !ok) {
-			fmt.Fprintf(w, "<h3>No such Paste %q</h3>", id)
-		} else {
-			fmt.Fprintf(w, "<pre>%s</pre>", text)
-		}
+		id := r.FormValue("pastename")
+		text, ok := pastes.Get(id)
+		getRender.Render(w, map[string]any{
+			"id": id,
+			"ok": ok,
+			"text": template.HTML(text),
+		})
 	} else {
-		name := r.FormValue("pastename")
-		body := html.EscapeString(r.FormValue("pastebody"))
-		if (name == "") {
-			name = fmt.Sprintf("%d", util.Hash(body)&9999)
+		id := r.FormValue("pastename")
+		text := r.FormValue("pastebody")
+		if (id == "") {
+			id = strconv.FormatInt(int64(Hash(text)&9999), 10)
 		}
-		pastes[name] = body
-		fmt.Fprintf(w, "<h3>Paste %q Created</h3><pre>%s</pre>", name, body)
+		pastes.Set(id, text)
+		postRender.Render(w, map[string]any{
+			"id": id,
+			"text": text,
+		})
 	}
 }
 

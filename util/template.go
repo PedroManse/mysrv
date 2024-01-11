@@ -29,135 +29,193 @@ index := TemplatePage(
 )
 */
 
-// Content Server Creators
-// Static(File|Component)
-// (Dynamic|Templated(Logiced)?)(Plugged)?(Page|Component)
+/*
 
-// NOTE if the Content Server has a render engine, and info map
-// (map[string]any) can be provided (or may be nil). That info map will be
-// passed to the render engine as the root of information
+Content Server/Renderer Creators
+Static(File|Component)
+Templated(Logiced)?(Plugged)?Page
+Dynamic(Plugged)?Page
+TemplatedComponent
 
-// Plugged defines if there should be an []GOTMPlugin to run before rendering.
-// NOTE GOTMPlugin can read/write to requests, read/write to the info map, stop
-// execution of futher plugins and disabled rendering for a request
+NOTE if the Content Server has a render engine, and info map
+(map[string]any) can be provided (or may be nil). That info map will be
+passed to the render engine as the root of information
 
-// Templated attaches a Template file to the Content Server
-// NOTE /templates/*.gohtml will be parsed before the template file
-// Logiced attaches a user defined function to the end of the PluginList
-// NOTE Logiced may be used even if Plugged is no specified
+Plugged defines if there should be an []GOTMPlugin to run before rendering.
+NOTE GOTMPlugin can read/write to requests, read/write to the info map, stop
+execution of futher plugins and disabled rendering for a request
 
-// File, Component, Page don't modify the content server.
-// However, recomended usage for
-// - Page is to ACT upon some information from the client (and possibly render it).
-// - Component is to render information from the server.
-// - File is to to serve as is.
-// TL;DR
-// - Page: side-effects and render engine
-// - Component: render engine
-// - File: info as if
+Templated attaches a Template file to the Content Server
+NOTE /templates/*.gohtml will be parsed before the template file
+Logiced attaches a user defined function to the end of the PluginList
+NOTE Logiced may be used even if Plugged is no specified
+
+Dynamic is TemplatedLogiced without the Template
+
+Page means the creator retusn a ContentServer, that implements:
+interaface {
+	ServeHTTP (w HttpWriter, r HttpReq)
+}
+
+Component mans the creator return a ContentRenderer, that implements:
+interaface {
+	Render(io.Writer, any)
+	RenderString(any) string
+}
+
+*/
+
+/* Func list TODO
+StaticFile
+StaticComponent
+DynamicPage
+DynamicComponent
+DynamicPluggedPage
+DynamicPluggedComponent
+TemplatedLogicedPluggedPage
+TemplatedLogicedPluggedComponent
+TemplatedPluggedPage
+TemplatedPluggedComponent
+TemplatedLogicedPage
+TemplatedLogicedComponent
+TemplatedPage
+TemplatedComponent
+*/
+
+// old alliases
+var LogicPage = TemplatedLogicedPluggedPage
+var TemplatePage = TemplatedPluggedPage
 
 type ContentServer = http.Handler
-
-func StaticFile(filename string) ContentServer {
-	return staticServer{filename}
+type ContentRenderer interface {
+	Render(w io.Writer, info any)
+	RenderString(info any) string
 }
 
-type staticServer struct {
-	Filename string
+func TemplatedComponent ( filename string ) ContentRenderer {
+	return templatedComponent{tmpl(filename)}
 }
 
-type TemplatedComponent struct {
-	Template *template.Template
+func InlineComponent ( filename string ) ContentRenderer {
+	return templatedComponent{inlinetmpl(filename)}
 }
 
-type TemplatedPage struct {
-	Template *template.Template
-	Info map[string]any
-	Plugins []GOTMPlugin
+// DynamicPage without plugins is just a user function
+var DynamicPage = DynamicPluggedPage
+func DynamicPluggedPage(info map[string]any, plugins []GOTMPlugin, fn Plugin) ContentServer {
+	return dynamicPage{ infomap(info), logicpluglist(fn, plugins) }
 }
 
-// TODO DynamicPage
-// LogicedPage without template
-type LogicedPage struct {
-	Template *template.Template
-	Info map[string]any
-	Plugins []GOTMPlugin
-	Fn Plugin
+func TemplatedLogicedPluggedPage(file string, info map[string]any, plugins []GOTMPlugin, fn Plugin) (ContentServer) {
+	return templatedPage{ tmpl(file), infomap(info), logicpluglist(fn, plugins) }
 }
 
+func TemplatedPluggedPage(file string, info map[string]any, plugins []GOTMPlugin) (ContentServer) {
+	return templatedPage{ tmpl(file), infomap(info), pluglist(plugins) }
+}
+
+func TemplatedLogicedPage(file string, info map[string]any, fn Plugin) (ContentServer) {
+	return templatedPage{ tmpl(file), infomap(info), logicpluglist(fn, nil) }
+}
+
+func TemplatedPage(file string, info map[string]any) (ContentServer) {
+	return templatedPage{ tmpl(file), infomap(info), pluglist(nil) }
+}
+
+func StaticFile(filename string) ContentServer { return staticServer{filename} }
+var StaticComponent = StaticFile
+
+// the 4 Content Servers
+// as is
+type staticServer struct { Filename string }
 func (s staticServer) ServeHTTP (w HttpWriter, r HttpReq) {
 	http.ServeFile(w, r, s.Filename)
 }
 
-func TemplatePage(filename string, info map[string]any, plugins []GOTMPlugin) TemplatedPage {
-	if info == nil {
-		info = make(map[string]any)
-	}
-
-	tmpl := template.Must(
-		template.Must(
-			template.ParseFiles(filename),
-		).ParseGlob("templates/*.gohtml"),
-	)
-
-	return TemplatedPage{
-		tmpl, info, plugins,
-	}
+// only render
+type templatedComponent struct {
+	Template *template.Template
 }
-
-func (s TemplatedPage) ServeHTTP (w HttpWriter, r HttpReq) {
-	var render = true
-	var prender bool
-	for _, plug := range s.Plugins {
-		prender, s.Info[plug.Name] = plug.Plug(w, r, s.Info)
-		render = render&&prender
-	}
-	if (render) {
-		e := s.Template.Execute(w, s.Info)
-		if (e != nil) {
-			panic(e)
-		}
-	}
+func (Tc templatedComponent) Render(w io.Writer, einfo any) {
+	e := Tc.Template.Execute(w, einfo)
+	if ( e != nil ) {panic(e)}
 }
-
-func LogicPage(
-	filename string,
-	info map[string]any,
-	plugins []GOTMPlugin,
-	fn Plugin,
-) (TemplatedPage) {
-	if info == nil {
-		info = make(map[string]any)
-	}
-
-	tmpl := template.Must(
-		template.Must(
-			template.ParseFiles(filename),
-		).ParseGlob("templates/*.gohtml"),
-	)
-
-	return TemplatedPage{
-		tmpl, info, append(plugins, GOTMPlugin{"logic", fn}),
-	}
-}
-
-func Component (
-	filename string,
-) TemplatedComponent {
-	tmpl := template.Must(
-		template.Must(
-			template.ParseFiles(filename),
-		).ParseGlob("templates/*.gohtml"),
-	)
-	return TemplatedComponent{tmpl}
-}
-
-func (Tc TemplatedComponent) Render(w io.Writer, einfo any) {
-	Tc.Template.Execute(w, einfo)
-}
-
-func (Tc TemplatedComponent) RenderString(einfo any) (s string) {
+func (Tc templatedComponent) RenderString(einfo any) (s string) {
 	panic("NOT IMPLEMENTED")
 	return ""
+}
+
+// only preprocess/process
+type dynamicPage struct {
+	Info map[string]any
+	Plugins []GOTMPlugin
+}
+
+func (dp dynamicPage) ServeHTTP (w HttpWriter, r HttpReq) {
+	for _, plug := range dp.Plugins {
+		_, dp.Info[plug.Name] = plug.Plug(w, r, dp.Info)
+	}
+}
+
+// preprocess/process, render
+type templatedPage struct {
+	Template *template.Template
+	Info map[string]any
+	Plugins []GOTMPlugin
+}
+
+func (tp templatedPage) ServeHTTP (w HttpWriter, r HttpReq) {
+	var render = true
+	var prender bool
+
+	for _, plug := range tp.Plugins {
+		prender, tp.Info[plug.Name] = plug.Plug(w, r, tp.Info)
+		render = render&&prender
+	}
+
+	if (render) {
+		e := tp.Template.Execute(w, tp.Info)
+		if (e != nil) { panic(e) }
+	}
+}
+
+// Creator helper funcs
+func tmpl(filename string) *template.Template {
+	return template.Must(
+		template.Must(
+			template.ParseFiles(filename),
+		).ParseGlob("templates/*.gohtml"),
+	)
+}
+
+func inlinetmpl(str string) *template.Template {
+	return template.Must(
+		template.Must(
+			template.New("inlined Template").Parse(str),
+		).ParseGlob("templates/*.gohtml"),
+	)
+}
+
+
+func infomap(inf map[string]any) map[string]any {
+	if (inf == nil) {
+		inf = make(map[string]any)
+	}
+	return inf
+}
+
+func logicpluglist(fn Plugin, plugins []GOTMPlugin) []GOTMPlugin {
+	if (plugins == nil) {
+		return []GOTMPlugin{GOTMPlugin{"logic", fn}}
+	} else {
+		return append(plugins, GOTMPlugin{"logic", fn})
+	}
+}
+
+func pluglist(plugins []GOTMPlugin) []GOTMPlugin {
+	if (plugins == nil) {
+		plugins = []GOTMPlugin{}
+	}
+	return	plugins
 }
 

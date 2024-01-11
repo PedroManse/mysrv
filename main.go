@@ -92,15 +92,11 @@ var ( // templated pages
 	)
 	users = TemplatePage(
 		"html/sys/users.gohtml", nil,
-		[]GOTMPlugin{GOTM_account, GOTM_accounts},
+		[]GOTMPlugin{GOTM_account, GOTM_mustacc, GOTM_accounts},
 	)
-	// must be logged in plugin
+	//TODO: services should provide all endpoints
 	chat = TemplatePage(
 		"html/chat/chat.gohtml", nil,
-		[]GOTMPlugin{GOTM_account, GOTM_mustacc},
-	)
-	ecb = TemplatePage(
-		"html/ecb/ecb.gohtml", nil,
 		[]GOTMPlugin{GOTM_account, GOTM_mustacc},
 	)
 	pdb = TemplatePage(
@@ -131,7 +127,7 @@ func main() {
 	http.Handle("/wschat", service.ChatServer)
 
 	// ephemeral public info
-	http.Handle("/ecb", ecb)
+	http.Handle("/ecb", service.ECBEndpoint)
 	http.HandleFunc("/fsecb", service.ECBHandler)
 
 	// non-ephemeral private info
