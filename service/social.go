@@ -137,7 +137,14 @@ type SocialQuery struct {
 
 func prelude(w HttpWriter, r HttpReq, info map[string]any) (acc *Account, query SocialQuery, ok bool) {
 	r.ParseForm()
-	accid := (info["acc"].(map[string]any))["id"].(int64)
+	var accinf = info["acc"].(map[string]any)
+	var accid int64
+	if (accinf["ok"]) {
+		accid = accinf["id"].(int64)
+	} else {
+		return
+	}
+
 	query.AccID = accid
 	acc, ok = IDToAccount.Get(accid)
 	if (!ok) {return}
