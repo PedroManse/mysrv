@@ -139,7 +139,7 @@ func prelude(w HttpWriter, r HttpReq, info map[string]any) (acc *Account, query 
 	r.ParseForm()
 	var accinf = info["acc"].(map[string]any)
 	var accid int64
-	if (accinf["ok"]) {
+	if (accinf["ok"].(bool)) {
 		accid = accinf["id"].(int64)
 	} else {
 		return
