@@ -86,14 +86,20 @@ CREATE TABLE IF NOT EXISTS social_comment_reaction (
 
 var CardsEndpoint = LogicPage(
 	"html/social/cards.gohtml",
-	map[string]any{ "allreactions":ReactionsInfo, },
-	[]GOTMPlugin{ GOTM_account, GOTM_mustacc },
+	map[string]any{
+		"allreactions":ReactionsInfo,
+		"allsorts":SortNames,
+	},
+	[]GOTMPlugin{ GOTM_account, GOTM_mustacc, GOTM_urlInfo, GOTM_log},
 	postsEndpoint,
 )
 
 var PostPageEndpoint = LogicPage(
 	"html/social/post.gohtml",
-	map[string]any{ "allreactions":ReactionsInfo, },
+	map[string]any{
+		"allreactions":ReactionsInfo,
+		"allsorts":SortNames,
+	},
 	[]GOTMPlugin{ GOTM_account, GOTM_mustacc },
 	postEndpoint,
 )
@@ -106,14 +112,20 @@ var CreatePostPageEndpoint = LogicPage(
 
 var ReactToPostEndpoint = LogicPage(
 	"html/social/post-reactions.gohtml",
-	map[string]any{ "allreactions":ReactionsInfo, },
+	map[string]any{
+		"allreactions":ReactionsInfo,
+		"allsorts":SortNames,
+	},
 	[]GOTMPlugin{ GOTM_account, GOTM_mustacc },
 	reactToPostEndpoint,
 )
 
 var ReactToCommentEndpoint = LogicPage(
 	"html/social/comment-reactions.gohtml",
-	map[string]any{ "allreactions":ReactionsInfo},
+	map[string]any{
+		"allreactions":ReactionsInfo,
+		"allsorts":SortNames,
+	},
 	[]GOTMPlugin{ GOTM_account, GOTM_mustacc },
 	reactToCommentEndpoint,
 )
@@ -291,6 +303,18 @@ var SortNameToID = ISyncMap(map[string]SortMethod {
 	"MostUnitedHate": SortUnitedHate,
 })
 
+var SortNames = []string {
+	"Newest",
+	"Oldest",
+	"MostComments",
+	"MostLikes",
+	"MostDislikes",
+	"MostDivided",
+	"MostUnited",
+	"MostUnitedLove",
+	"MostUnitedHate",
+}
+
 func SortPosts(UseSort SortMethod, PostsToSort []*Post) []*Post {
 	sp := SortedPosts{PostsToSort, UseSort}
 	sort.Sort(sp)
@@ -347,7 +371,7 @@ type ReactionInfo struct {
 	MeansHappy bool
 	Img string
 	Alt string
-	AltStyle string
+	AltStyle template.CSS
 }
 
 func HTMLCommentReactions(selected uint64, commentid int64) (h template.HTML) {
@@ -366,28 +390,32 @@ func (R ReactionInfo) HTMLComment(selected uint64, commentid int64) (template.HT
 	return template.HTML(R.HTMLstrComment(selected, commentid))
 }
 
+var ReactionHTML = InlineUnsafeComponent(`
+	<button
+		title="{{ .R.Name }}" style="{{ .R.AltStyle }}" class="reaction {{ .class }}"
+		{{ .action }}="/social/posts/react?reaction={{ .R.ID }}&postid={{ .postid }}"
+		hx-target="#post-{{ .postid }} > span.reactions"
+		hx-swap="outerHTML"
+	>
+		<img src="{{.R.Img}}" alt="{{.R.Alt}}">
+	</button>
+`)
+
 func (R ReactionInfo) HTMLstr(selected uint64, postid int64) (string) {
 	if (R.ID == 0) {return ""}
+
 	class:="notSelected"
 	action:="hx-post"
 	if selected == R.ID {
 		class="selected"
 		action="hx-delete"
 	}
-	return fmt.Sprintf(`
-	<button
-		title=%q style=%q class="reaction %s"
-		%s="/social/posts/react?reaction=%d&postid=%d"
-		hx-target="#post-%d > span.reactions"
-		hx-swap="outerHTML"
-	>
-		<img src=%q alt=%q>
-	</button>
-	`, R.Name, R.AltStyle, class,
-		action, R.ID, postid,
-		postid,
-		R.Img, R.Alt,
-	)
+	return ReactionHTML.RenderString(map[string]any{
+		"R":R,
+		"class":class,
+		"postid":postid,
+		"action":action,
+	})
 }
 
 func (R ReactionInfo) HTMLstrComment(selected uint64, commentid int64) (string) {
@@ -427,22 +455,22 @@ const (
 
 var ReactionsInfo = [...]ReactionInfo{
 	ReactionLike: ReactionInfo{ ReactionLike, "Like", true,
-		"/files/img/social/reaction_like.ico", "↑", "color: green;",
+		"/files/img/social/reaction_like.ico", "↑", template.CSS("color: green;"),
 	},
 	ReactionDislike: ReactionInfo{ ReactionDislike, "Dislike", false,
-		"/files/img/social/reaction_dislike.ico", "↓", "color: red;",
+		"/files/img/social/reaction_dislike.ico", "↓", template.CSS("color: red;"),
 	},
 	ReactionLove: ReactionInfo{ ReactionLove, "Love", true,
-		"/files/img/social/reaction_love.ico", "<3", "color: pink;",
+		"/files/img/social/reaction_love.ico", "<3", template.CSS("color: pink;"),
 	},
 	ReactionHate: ReactionInfo{ ReactionHate, "Hate", false,
-		"/files/img/social/reaction_hate.ico", "`^´", "color: red;",
+		"/files/img/social/reaction_hate.ico", "`^´", template.CSS("color: red;"),
 	},
 	ReactionLaugh: ReactionInfo{ ReactionLaugh, "Laugh", true,
-		"/files/img/social/reaction_laugh.ico", "XD", "color: white;",
+		"/files/img/social/reaction_laugh.ico", "XD", template.CSS("color: white;"),
 	},
 	ReactionCry: ReactionInfo{ ReactionCry, "Cry", false,
-		"/files/img/social/reaction_cry.ico", ":(", "color: blue;",
+		"/files/img/social/reaction_cry.ico", ":(", template.CSS("color: blue;"),
 	},
 }
 
@@ -600,7 +628,6 @@ func (C *Comment) React(accID int64, reaction ReactionType) {
 	}
 }
 
-//TODO unreact
 func (P *Post) React(accID int64, reaction ReactionType) {
 	_, e := SQLDo("service/social.(*Post).React", `
 	INSERT OR REPLACE INTO social_post_reaction

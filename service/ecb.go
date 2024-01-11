@@ -24,7 +24,6 @@ var postRender = InlineComponent(`
 <pre>{{.text}}</pre>
 `)
 
-
 func ECBHandler(w HttpWriter, r HttpReq) {
 	if (r.Method == "GET") {
 		id := r.FormValue("pastename")

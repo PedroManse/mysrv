@@ -4,6 +4,7 @@ div.post.card {
 	}
 	div.content {
 		overflow-y: clip;
+		margin-bottom: 3px;
 		max-height: 150px;
 		a.fill-div {
 			h1 { margin: 8px; }

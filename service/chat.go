@@ -4,12 +4,17 @@ import (
 	"golang.org/x/net/websocket"
 	"encoding/json"
 	"time"
-	"mysrv/util"
+	. "mysrv/util"
+)
+
+var ChatEndpoint = TemplatePage(
+	"html/chat/chat.gohtml", nil,
+	[]GOTMPlugin{GOTM_account, GOTM_mustacc},
 )
 
 type chatacc struct {
 	id int
-	hash util.HashResult
+	hash HashResult
 	name string
 	email string
 	connected bool
@@ -62,7 +67,7 @@ func accReadLoop(ws *websocket.Conn) error {
 // Echo the data received on the WebSocket.
 func chatServer(ws *websocket.Conn) {
 	id := len(chatUsers)
-	hash := util.Hash(time.Now().String())
+	hash := Hash(time.Now().String())
 	chatUsers[ws] = &chatacc{id, hash, "", "", true}
 
 	dt, e := json.Marshal(map[string]any{"id":id, "hash":hash})

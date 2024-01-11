@@ -32,8 +32,8 @@ func MakeSyncMap[Key comparable, Value any]() SyncMap[Key, Value] {
 	}
 }
 
-func ISyncMap[K comparable, V any](mp map[K]V) (SyncMap[K, V]) {
-	return SyncMap[K, V]{
+func ISyncMap[K comparable, V any](mp map[K]V) (*SyncMap[K, V]) {
+	return &SyncMap[K, V]{
 		MAP: mp,
 		MUTEX: sync.Mutex{},
 	}
@@ -211,4 +211,28 @@ func Max[V NumberType](a, b V) (V) {
 //		}
 //	}
 //}
+
+// implements io.Writer
+type WriteBuffer struct {
+	Buffer **[]byte
+}
+
+func (WB *WriteBuffer) Init() {
+	buffer := &[]byte{}
+	WB.Buffer = &(buffer)
+}
+
+func (WB WriteBuffer) Write(p []byte) (n int, err error) {
+	nbuff := append(**WB.Buffer, p...)
+	*WB.Buffer = &nbuff
+	return len(p), nil
+}
+
+func (WB WriteBuffer) String() (string) {
+	return string(**WB.Buffer)
+}
+
+func (WB WriteBuffer) Bytes() ([]byte) {
+	return **WB.Buffer
+}
 

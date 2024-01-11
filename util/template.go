@@ -1,6 +1,7 @@
 package util
 
 import (
+	unsafeTemplate "text/template"
 	"html/template"
 	"net/http"
 	"io"
@@ -100,6 +101,10 @@ func InlineComponent ( filename string ) ContentRenderer {
 	return templatedComponent{inlinetmpl(filename)}
 }
 
+func InlineUnsafeComponent ( filename string ) ContentRenderer {
+	return templatedComponent{inlinetmpl_u(filename)}
+}
+
 // DynamicPage without plugins is just a user function
 var DynamicPage = DynamicPluggedPage
 func DynamicPluggedPage(info map[string]any, plugins []GOTMPlugin, fn Plugin) ContentServer {
@@ -132,17 +137,32 @@ func (s staticServer) ServeHTTP (w HttpWriter, r HttpReq) {
 	http.ServeFile(w, r, s.Filename)
 }
 
+type anyTemplate interface {
+	Execute(io.Writer, any) error
+}
+
 // only render
 type templatedComponent struct {
-	Template *template.Template
+	Template anyTemplate
 }
 func (Tc templatedComponent) Render(w io.Writer, einfo any) {
 	e := Tc.Template.Execute(w, einfo)
 	if ( e != nil ) {panic(e)}
 }
+
 func (Tc templatedComponent) RenderString(einfo any) (s string) {
-	panic("NOT IMPLEMENTED")
-	return ""
+	var WB = WriteBuffer{}
+	WB.Init()
+	e := Tc.Template.Execute(WB, einfo)
+	if ( e != nil ) {panic(e)}
+	return WB.String()
+}
+
+func (Tc templatedComponent) RenderBytes(einfo any) (s []byte) {
+	var WB = WriteBuffer{}
+	e := Tc.Template.Execute(WB, einfo)
+	if ( e != nil ) {panic(e)}
+	return WB.Bytes()
 }
 
 // only preprocess/process
@@ -159,7 +179,7 @@ func (dp dynamicPage) ServeHTTP (w HttpWriter, r HttpReq) {
 
 // preprocess/process, render
 type templatedPage struct {
-	Template *template.Template
+	Template anyTemplate
 	Info map[string]any
 	Plugins []GOTMPlugin
 }
@@ -180,7 +200,7 @@ func (tp templatedPage) ServeHTTP (w HttpWriter, r HttpReq) {
 }
 
 // Creator helper funcs
-func tmpl(filename string) *template.Template {
+func tmpl(filename string) anyTemplate {
 	return template.Must(
 		template.Must(
 			template.ParseFiles(filename),
@@ -188,7 +208,15 @@ func tmpl(filename string) *template.Template {
 	)
 }
 
-func inlinetmpl(str string) *template.Template {
+func tmpl_u(filename string) anyTemplate {
+	return unsafeTemplate.Must(
+		unsafeTemplate.Must(
+			unsafeTemplate.ParseFiles(filename),
+		).ParseGlob("templates/*.gohtml"),
+	)
+}
+
+func inlinetmpl(str string) anyTemplate {
 	return template.Must(
 		template.Must(
 			template.New("inlined Template").Parse(str),
@@ -196,6 +224,13 @@ func inlinetmpl(str string) *template.Template {
 	)
 }
 
+func inlinetmpl_u(str string) anyTemplate {
+	return unsafeTemplate.Must(
+		unsafeTemplate.Must(
+			unsafeTemplate.New("inlined Template").Parse(str),
+		).ParseGlob("templates/*.gohtml"),
+	)
+}
 
 func infomap(inf map[string]any) map[string]any {
 	if (inf == nil) {

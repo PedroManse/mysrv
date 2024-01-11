@@ -66,7 +66,7 @@ func LoginHandler(w HttpWriter, r HttpReq, info map[string]any) (render bool, re
 	return false, ret
 }
 
-var ( // templated pages
+var ( // system pages
 	index = LogicPage(
 		"html/sys/index.gohtml", nil,
 		[]GOTMPlugin{GOTM_account},
@@ -94,15 +94,7 @@ var ( // templated pages
 		"html/sys/users.gohtml", nil,
 		[]GOTMPlugin{GOTM_account, GOTM_mustacc, GOTM_accounts},
 	)
-	//TODO: services should provide all endpoints
-	chat = TemplatePage(
-		"html/chat/chat.gohtml", nil,
-		[]GOTMPlugin{GOTM_account, GOTM_mustacc},
-	)
-	pdb = TemplatePage(
-		"html/pdb/pdb.gohtml", nil,
-		[]GOTMPlugin{GOTM_account, GOTM_mustacc, service.GOTM_pdbcopy},
-	)
+
 	forms = TemplatePage(
 		"html/forms/forms.gohtml", nil,
 		[]GOTMPlugin{GOTM_account, GOTM_mustacc},
@@ -123,7 +115,7 @@ func main() {
 	http.Handle("/files/", http.StripPrefix("/files", http.FileServer(http.Dir("./files/"))))
 
 	// real-time WebSocket chat
-	http.Handle("/chat", chat)
+	http.Handle("/chat", service.ChatEndpoint)
 	http.Handle("/wschat", service.ChatServer)
 
 	// ephemeral public info
@@ -131,12 +123,12 @@ func main() {
 	http.HandleFunc("/fsecb", service.ECBHandler)
 
 	// non-ephemeral private info
-	http.Handle("/pdb", pdb)
+	http.Handle("/pdb", service.PDBEndpoint)
 	http.HandleFunc("/fspdb", service.PDBHandler)
 
 	// plataform to create and host <form>s
 	http.Handle("/forms", forms)
-	//TODO literally most parts
+	// TODO: literally most parts
 
 	// social media
 	http.Handle("/social/all", service.CardsEndpoint)

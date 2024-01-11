@@ -13,7 +13,7 @@ var (
 // side effect executes request.ParseForm
 func log(w HttpWriter, r HttpReq, info map[string]any) (render bool, addinfo any) {
 	r.ParseForm()
-	FLog(log_area, "new HTTP conn [%s] @ %s {%+v}\ninfo: %+v\n\n", r.Method, r.URL.Path, r.Form, info)
+	FLog(log_area, "new HTTP conn [%s] @ %s {%+v}\nGOTMP info: %+v\n\n", r.Method, r.URL.Path, r.Form, info)
 	return true, nil
 }
 var GOTM_log = GOTMPlugin{"", log}
@@ -78,7 +78,6 @@ func url_to_info(w HttpWriter, r HttpReq, info map[string]any) (render bool, ret
 }
 var GOTM_urlInfo = GOTMPlugin{"urlinfo", url_to_info}
 
-
 func accountsCopy(w HttpWriter, r HttpReq, info map[string]any) (render bool, ret_r any) {
 	return true, AccountsCopy()
 }
@@ -92,3 +91,4 @@ func must_account(w HttpWriter, r HttpReq, info map[string]any) (render bool, re
 	return true, nil
 }
 var GOTM_mustacc = GOTMPlugin{"", must_account}
+

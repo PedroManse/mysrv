@@ -21,9 +21,15 @@ div.post > div.content { font-size: 28px; }
 span.reactions > span.react > button.reaction {
 	padding: 0;
 };
+
 div.page span.reactions span.react button.reaction img{
 	max-width: 22px;
 	max-height: 22px;
+	margin-bottom: -3px;
+}
+div.card > span.reactions > span.react > button.reaction > img {
+	max-width: 19px;
+	max-height: 19px;
 	margin-bottom: -3px;
 }
 div.comment > span.reactions > span.react > button.reaction > img {
@@ -31,10 +37,7 @@ div.comment > span.reactions > span.react > button.reaction > img {
 	max-height: 100%;
 	margin-bottom: -2px;
 }
-div.card > span.reactions > span.react > button.reaction > img {
-	max-width: 19px;
-	max-height: 19px;
-}
+
 span.reactions {
 	span.reactionCount {
 		span.likes { color: green; }

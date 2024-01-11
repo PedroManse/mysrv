@@ -1,12 +1,17 @@
 package service
 
 import (
-	"mysrv/util"
+	. "mysrv/util"
 	"errors"
 	"net/http"
 	"database/sql"
 	"io"
 	"encoding/json"
+)
+
+var PDBEndpoint = TemplatePage(
+	"html/pdb/pdb.gohtml", nil,
+	[]GOTMPlugin{GOTM_account, GOTM_mustacc, GOTM_pdbcopy},
 )
 
 var pdbSQLScript = `
@@ -30,11 +35,11 @@ CREATE TABLE IF NOT EXISTS pdb_data (
 `
 
 func init() {
-	util.SQLInitScript( "pdb", pdbSQLScript )
+	SQLInitScript( "pdb", pdbSQLScript )
 }
 
 func pdbRemoveRow(id int64, row string) (err error) {
-	_, err = util.SQLDo("pdb remove row", `
+	_, err = SQLDo("pdb remove row", `
 	DELETE FROM pdb_data WHERE accid=? AND row=?;
 	UPDATE OR REPLACE pdb_data SET row=row-1 WHERE (accid=? AND row>?);
 	UPDATE pdb_info SET rowcount=max(rowcount-1, 1) WHERE accid=?;
@@ -43,7 +48,7 @@ func pdbRemoveRow(id int64, row string) (err error) {
 }
 
 func pdbRemoveCol(id int64, col string) (err error) {
-	_, err = util.SQLDo("pdb remove col", `
+	_, err = SQLDo("pdb remove col", `
 	DELETE FROM pdb_data WHERE accid=? AND col=?;
 	UPDATE OR REPLACE pdb_data SET col=col-1 WHERE (accid=? AND col>?);
 	UPDATE pdb_info SET colcount=max(colcount-1, 1) WHERE accid=?;
@@ -52,7 +57,7 @@ func pdbRemoveCol(id int64, col string) (err error) {
 }
 
 func pdbSetSize(id int64, row, col string) {
-	_, err := util.SQLDo("pdb set size", `
+	_, err := SQLDo("pdb set size", `
 UPDATE pdb_info
 SET rowcount=?, colcount=?
 WHERE accid=?;
@@ -61,7 +66,7 @@ WHERE accid=?;
 }
 
 func pdbSet(id int64, row, col, data string) {
-	_, err := util.SQLDo("pdb set data", `
+	_, err := SQLDo("pdb set data", `
 INSERT INTO pdb_data (accid, row, col, data)
 VALUES (?, ?, ?, ?)
 ON CONFLICT DO UPDATE SET data=?;
@@ -80,7 +85,7 @@ func pdbSetBatch(id int64, pdbSets []PDBSlot) {
 }
 
 func pdbRead(id int64) [][]string {
-	sqlrow := util.SQLGetSingle("pdb get col/row count", "SELECT rowcount, colcount FROM pdb_info WHERE (accid=?);", id)
+	sqlrow := SQLGetSingle("pdb get col/row count", "SELECT rowcount, colcount FROM pdb_info WHERE (accid=?);", id)
 
 	var rowcount, colcount int
 	err := sqlrow.Scan(&rowcount, &colcount)
@@ -89,8 +94,8 @@ func pdbRead(id int64) [][]string {
 		if errors.Is(err, sql.ErrNoRows) {
 			rowcount = 1
 			colcount = 1
-			util.FLog(util.SQLArea, "creating pdb entry for [%d]\n", id)
-			_, err = util.SQLDo("create pdb info entry", "INSERT INTO pdb_info (accid) VALUES (?)", id)
+			FLog(SQLArea, "creating pdb entry for [%d]\n", id)
+			_, err = SQLDo("create pdb info entry", "INSERT INTO pdb_info (accid) VALUES (?)", id)
 			if (err != nil) {panic(err)}
 		} else {
 			panic(err)
@@ -102,7 +107,7 @@ func pdbRead(id int64) [][]string {
 		table[i] = make([]string, colcount)
 	}
 
-	sqlinfo, err := util.SQLGet("pdb get data", `
+	sqlinfo, err := SQLGet("pdb get data", `
 SELECT row, col, data FROM pdb_data
 WHERE accid=? AND row<? AND col<?
 LIMIT ?;`, id, rowcount, colcount, rowcount*colcount)
@@ -121,7 +126,7 @@ LIMIT ?;`, id, rowcount, colcount, rowcount*colcount)
 	return table
 }
 
-func pdbCopy(w util.HttpWriter, r util.HttpReq, info map[string]any) (render bool, ret_r any) {
+func pdbCopy(w HttpWriter, r HttpReq, info map[string]any) (render bool, ret_r any) {
 	accinfo := info["acc"].(map[string]any)
 
 	if (!accinfo["ok"].(bool)) {
@@ -132,7 +137,7 @@ func pdbCopy(w util.HttpWriter, r util.HttpReq, info map[string]any) (render boo
 	id := accinfo["id"].(int64)
 	return true, pdbRead(id)
 }
-var GOTM_pdbcopy = util.GOTMPlugin{"pdb", pdbCopy}
+var GOTM_pdbcopy = GOTMPlugin{"pdb", pdbCopy}
 
 type PDBSlot struct {
 	Row string `json:"row"`
@@ -145,9 +150,9 @@ type PDBSize struct {
 	Col string `json:"col"`
 }
 
-func PDBHandler(w util.HttpWriter, r util.HttpReq) {
-	_, accinfo := util.GOTM_account.Plug(w, r, make(map[string]any))
-	ok, _ := util.GOTM_mustacc.Plug(w, r, map[string]any{"acc":accinfo})
+func PDBHandler(w HttpWriter, r HttpReq) {
+	_, accinfo := GOTM_account.Plug(w, r, make(map[string]any))
+	ok, _ := GOTM_mustacc.Plug(w, r, map[string]any{"acc":accinfo})
 	if (!ok) {return}
 	id := accinfo.(map[string]any)["id"].(int64)
 
@@ -183,7 +188,7 @@ func PDBHandler(w util.HttpWriter, r util.HttpReq) {
 		} else if (pdbupdate.Row != "" && pdbupdate.Col == "") {
 			e = pdbRemoveRow(id, pdbupdate.Row)
 		} else {
-			util.FLog(util.FLOG_ERROR, "User [%d] tried to remove row and column or neither\n", id)
+			FLog(FLOG_ERROR, "User [%d] tried to remove row and column or neither\n", id)
 			w.WriteHeader(http.StatusBadRequest)
 			panic("User tried to remove row and column or neither")
 		}

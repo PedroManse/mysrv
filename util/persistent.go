@@ -9,10 +9,12 @@ var db *sql.DB
 
 var SQLArea = NewArea("SQL")
 
+//TODO: mayber SQLScript reading file
 type SQLScript struct {
 	Name string
 	Code string
 }
+
 var init_scripts = []SQLScript{}
 func SQLInitScript(Name string, Code string) {
 	init_scripts = append( init_scripts, SQLScript{Name, Code})

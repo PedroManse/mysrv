@@ -7,7 +7,7 @@
 </head>
 <body>
 	{{ template "nav" . }}
-	{{ template "social" . }}
+	{{ template "social-posts" . }}
 	{{ range $_, $post := .logic.posts }}
 	{{if $post}}
 		<div class="post card" id="post-{{ $post.PostID }}">
@@ -36,7 +36,9 @@
 				</span>
 				<span class="react">
 					{{ range $i, $info := $.allreactions }}
-						{{ $info.HTML $userReaction $post.PostID }}
+						{{ if ne $i 0 }}
+							{{ $info.HTML $userReaction $post.PostID }}
+						{{ end }}
 					{{ end }}
 				</span>
 			</span>
