@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 	<head>
+		<link rel="stylesheet" type="text/css" href="/files/css/acc.css">
 		<title>
 			{{ if .acc }}
 				Change Account
@@ -10,28 +11,23 @@
 		</title>
 	</head>
 	<body>
-		{{ if .acc }}
-			<h1>Olá {{.acc.Name}}</h1>
-		{{ else }}
-			<h1>Olá</h1>
-		{{ end }}
+		{{ template "nav-login" . }}
 
-		<form action="/register" method="POST">
-			<label for="email" name="email">Email: </label>
-			<input  id="email" name="email" type="email"><br>
-			<label for="username" name="username">Username</label>
-			<input  id="username" name="username" type="text"><br>
-			<label for="password" name="password">Password</label>
-			<input  id="password" name="password" type="password"><br>
-			<button> Criar </button>
-		</form>
+		<div class="center">
+			<form action="/register" method="POST">
+				<input placeholder="UserName" id="username" name="username" type="text"><br>
+				<input placeholder="Email" id="email" name="email" type="email"><br>
+				<input placeholder="Password" id="password" name="password" type="password"><br>
+				<button> Create </button>
+			</form>
 
-		{{ if .logic.failed }}
-			<h2 class="error">{{ .logic.failReason }}</h2>
-			{{ if .logic.failEmail }}
-				<h2><a href="/login">Maybe Login</a></h2>
+			{{ if .logic.failed }}
+				<h2 class="failed">{{ .logic.failReason }}</h2>
+				{{ if .logic.failEmail }}
+					<h2><a href="/login">Maybe Login</a></h2>
+				{{ end }}
 			{{ end }}
-		{{ end }}
+		</div>
 	</body>
 </html>
 

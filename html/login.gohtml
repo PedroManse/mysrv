@@ -5,25 +5,19 @@
 		<title>Login</title>
 	</head>
 	<body>
-		<span class="acc">
-			{{ if .acc.ok }}
-				<h2>Olá {{.acc.name}}</h2>
-			{{ else }}
-				<h2>Olá</h2>
+		{{ template "nav-login" . }}
+		<div class="center">
+			<form action="/login" method="POST">
+				<input placeholder="Email" id="email" name="email" type="email"><br>
+				<input placeholder="Password" id="password" name="password" type="password"><br>
+				<button>Login</button>
+			</form>
+			{{ if .logic.failed }}
+				<h3 class="failed"> {{ .logic.failReason }} </h3>
 			{{ end }}
-		</span>
-		<form action="/login" method="POST">
-			<label id="email" for="email">Email: </label>
-			<input id="email" name="email" type="email"><br>
-
-			<label id="password" for="password">Password: </label>
-			<input id="password" name="password" type="password"><br>
-			<button>Login</button>
-		</form>
-		{{ if .logic.failed }}
-			<h3 style="color: red;"> {{ .logic.failReason }} </h3>
-		{{ end }}
-		<h3>Doesn't have an account? <a href="/register">Register!</a></h3>
+			<h3>Doesn't have an account?</h3>
+			<h3><a href="/register">Register!</a></h3>
+		</div>
 	</body>
 </html>
 
