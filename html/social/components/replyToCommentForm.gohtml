@@ -1,0 +1,15 @@
+{{$pid := index .urlinfo.query.postid 0}}
+{{$cid := index .urlinfo.query.commentid 0}}
+
+<form class="reply-poster" id="p{{$pid}}c{{$cid}}" method="POST" action="/social/comments/create?postid={{$pid}}&commentid={{$cid}}">
+	<textarea autofocus type="text" class="comment child" name="commentText"></textarea>
+	<button>Reply!</button>
+	<button
+		hx-target="#p{{$pid}}c{{$cid}}"
+		hx-swap="outerHTML"
+		hx-get="/social/comp/reply-button?postid={{$pid}}&commentid={{$cid}}"
+		class="cancelReply"
+	>
+		Cancel
+	</button>
+</form>

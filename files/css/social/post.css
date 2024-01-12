@@ -22,3 +22,27 @@ div.comments {
 	}
 }
 
+div.comment {
+	border-style: unset;
+	border-left-style: solid;
+	margin: 4px;
+	padding: 4px;
+	.border_1 { border-color: darkblue; }
+	.border_2 { border-color: darkred; }
+	.border_3 { border-color: darkgreen; }
+	.border_4 { border-color: #8F8F8F8F; }
+}
+
+button.reply-getter {
+	padding: 0px;
+	border-radius: 0;
+	width: 20px;
+	height: 20px;
+	img {
+		margin-bottom: -3px;
+		border-radius: 0;
+		height: 100%;
+		width: 100%;
+	}
+}
+

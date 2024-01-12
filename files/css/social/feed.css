@@ -35,7 +35,6 @@ div.card > span.reactions > span.react > button.reaction > img {
 div.comment > span.reactions > span.react > button.reaction > img {
 	max-width: 100%;
 	max-height: 100%;
-	margin-bottom: -2px;
 }
 
 span.reactions {
@@ -51,20 +50,27 @@ span.reactions {
 		button.reaction.notSelected > img {
 			filter: grayscale(100%);
 		}
-		button.reaction.notSelected > img:hover {
+		button.reaction.notSelected:hover > img {
 			filter: grayscale(0%);
 		}
-		button.reaction > img {
-			width: 100%;
-			height: 100%;
+		button.reaction.selected:hover {
+			border-color: red;
+			img {
+				filter: grayscale(100%);
+			}
 		}
 
 		button.reaction {
 			background-color: #1F1F1F;
-			min-width: 20px;
-			max-width: 25px;
-			min-height: 20px;
-			max-height: 30px;
+			border-radius: 10px;
+			width: 20px;
+			height: 20px;
+			img {
+				width: 100%;
+				height: 100%;
+				margin-bottom: -3px;
+				border-radius: 10px;
+			}
 		}
 	}
 }
@@ -88,18 +94,6 @@ div.post {
 
 div.comment > span.op {
 	font-size: 11px;
-}
-
-
-div.comment {
-	border-style: unset;
-	border-left-style: solid;
-	margin: 4px;
-	padding: 4px;
-	.border_1 { border-color: darkblue; }
-	.border_2 { border-color: darkred; }
-	.border_3 { border-color: darkgreen; }
-	.border_4 { border-color: #8F8F8F8F; }
 }
 
 a.fill-div {

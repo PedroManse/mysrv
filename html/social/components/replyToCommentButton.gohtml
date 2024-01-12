@@ -1,0 +1,14 @@
+{{$pid := index .urlinfo.query.postid 0}}
+{{$cid := index .urlinfo.query.commentid 0}}
+
+<button
+class="reply reply-getter"
+hx-swap="after closest .content"
+hx-get="/social/comp/reply-form?postid={{$pid}}&commentid={{$cid}}"
+>
+	<img alt="Reply!" src="/files/img/social/actions_reply.ico"></img>
+</button>
+
+<!--
+remember to sync to /html/social/components/comment.gohtml
+-->

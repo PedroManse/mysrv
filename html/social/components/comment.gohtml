@@ -1,0 +1,34 @@
+{{ $userReaction := .comment.Reactions.GetI .viewer }}
+
+<div class="comment border_{{.depth}}" id="comment-{{.comment.CommentID}}">
+	<span class="op">
+		<span class="name">{{ .comment.Commenter.Name }}</span>
+		<span class="email">{{ .comment.Commenter.Email }}</span>
+	</span>
+	<span id="reactions" class="reactions">
+		<span class="reactionCount">
+			<span class="likes"> {{ .comment.LikeCount.Load }} </span>
+			<span class="dislikes"> {{ .comment.DislikeCount.Load }} </span>
+		</span>
+		<span class="react">
+			{{ range $i, $info := $.allreactions }}
+				{{ $info.HTMLComment $userReaction $.comment.CommentID }}
+			{{ end }}
+		</span>
+	</span>
+	<button
+		class="reply reply-getter"
+		hx-swap="outerHTML"
+		hx-get="/social/comp/reply-form?postid={{.comment.Post.PostID}}&commentid={{.comment.CommentID}}"
+	>
+		<img alt="Reply!" src="/files/img/social/actions_reply.ico"></img>
+	</button>
+	<div class="content">
+		{{ .comment.CommentHTML }}
+	</div>
+	<div class="children">
+		{{ range $i, $child := .comment.Children }}
+			{{ $child.HTMLR $.viewer $.nextdepth }}
+		{{ end }}
+	</div>
+</div>

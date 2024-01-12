@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"sync/atomic"
 	"html/template"
-	"html"
 	"github.com/gomarkdown/markdown"
 	"strconv"
 	"sort"
@@ -69,6 +68,7 @@ CREATE TABLE IF NOT EXISTS social_post_reaction (
 	postID INTEGER NOT NULL,
 	accID INTEGER NOT NULL,
 	action INTEGER NOT NULL,
+	CHECK( action > 0),
 	UNIQUE(postID, accID),
 	FOREIGN KEY(accID) REFERENCES accounts(id),
 	FOREIGN KEY(postID) REFERENCES social_post(commentID)
@@ -78,9 +78,10 @@ CREATE TABLE IF NOT EXISTS social_comment_reaction (
 	commentID INTEGER NOT NULL,
 	accID INTEGER NOT NULL,
 	action INTEGER NOT NULL,
+	CHECK( action > 0),
 	UNIQUE(commentID, accID),
-	FOREIGN KEY(commentID) REFERENCES social_comment(commentID),
-	FOREIGN KEY(accID) REFERENCES accounts(id)
+	FOREIGN KEY(accID) REFERENCES accounts(id),
+	FOREIGN KEY(commentID) REFERENCES social_comment(commentID)
 );
 `
 
@@ -90,7 +91,7 @@ var CardsEndpoint = LogicPage(
 		"allreactions":ReactionsInfo,
 		"allsorts":SortNames,
 	},
-	[]GOTMPlugin{ GOTM_account, GOTM_mustacc, GOTM_urlInfo, GOTM_log},
+	[]GOTMPlugin{ GOTM_account, GOTM_mustacc, GOTM_urlInfo},
 	postsEndpoint,
 )
 
@@ -111,7 +112,7 @@ var CreatePostPageEndpoint = LogicPage(
 )
 
 var ReactToPostEndpoint = LogicPage(
-	"html/social/post-reactions.gohtml",
+	"html/social/components/post-reactions.gohtml",
 	map[string]any{
 		"allreactions":ReactionsInfo,
 		"allsorts":SortNames,
@@ -121,7 +122,7 @@ var ReactToPostEndpoint = LogicPage(
 )
 
 var ReactToCommentEndpoint = LogicPage(
-	"html/social/comment-reactions.gohtml",
+	"html/social/components/comment-reactions.gohtml",
 	map[string]any{
 		"allreactions":ReactionsInfo,
 		"allsorts":SortNames,
@@ -130,15 +131,27 @@ var ReactToCommentEndpoint = LogicPage(
 	reactToCommentEndpoint,
 )
 
-var CreateCommentEndpoint = DynamicPage( nil,
-	[]GOTMPlugin{ GOTM_account, GOTM_mustacc },
+var CreateCommentEndpoint = TemplatedLogicedPluggedPage(
+	"html/social/comment-error.gohtml", nil,
+	[]GOTMPlugin{GOTM_account},
 	createCommentEndpoint,
+)
+
+var CompReplyFormEndpoint = TemplatedPluggedPage(
+	"html/social/components/replyToCommentForm.gohtml", nil,
+	[]GOTMPlugin{GOTM_urlInfo},
+)
+
+var CompReplyButtonEndpoint = TemplatedPluggedPage(
+	"html/social/components/replyToCommentButton.gohtml", nil,
+	[]GOTMPlugin{GOTM_urlInfo},
 )
 
 type SocialQuery struct {
 	AccID int64
 	CommunityID int64
 	PostID int64
+	PostID_str string
 	CommentID int64
 	Reaction ReactionType
 	PostCount int64
@@ -159,12 +172,13 @@ func prelude(w HttpWriter, r HttpReq, info map[string]any) (acc *Account, query 
 	query.AccID = accid
 	acc, ok = IDToAccount.Get(accid)
 	if (!ok) {return}
-	query.CommunityID, _ = strconv.ParseInt(r.FormValue("communityid"), 10, 64)
-	query.PostID, _      = strconv.ParseInt(r.FormValue("postid"), 10, 64)
-	query.CommentID, _   = strconv.ParseInt(r.FormValue("commentid"), 10, 64)
-	query.Reaction, _    = strconv.ParseUint(r.FormValue("reaction"), 10, 64)
+	query.CommunityID, _  = strconv.ParseInt(r.FormValue("communityid"), 10, 64)
+	query.PostID, _       = strconv.ParseInt(r.FormValue("postid"), 10, 64)
+	query.PostID_str      = r.FormValue("postid")
+	query.CommentID, _    = strconv.ParseInt(r.FormValue("commentid"), 10, 64)
+	query.Reaction, _     = strconv.ParseUint(r.FormValue("reaction"), 10, 64)
 	query.PostCount, _    = strconv.ParseInt(r.FormValue("postcount"), 10, 64)
-	query.UseSort = SortNameToID.GetI(r.FormValue("sortmethod"))
+	query.UseSort         = SortNameToID.GetI(r.FormValue("sortmethod"))
 	if (query.PostCount == 0) {
 		query.PostCount = 10
 	}
@@ -173,14 +187,25 @@ func prelude(w HttpWriter, r HttpReq, info map[string]any) (acc *Account, query 
 
 func createCommentEndpoint( w HttpWriter, r HttpReq, info map[string]any) (render bool, addinfo any) {
 	acc, query, ok := prelude(w, r, info)
-	if (!ok) {return true, map[string]any{"error":"Invalid Account"}}
+	einfo := Tuple[string, string]{"", `/social/posts?postid=`+query.PostID_str}
+	if (!ok) {
+		einfo.Left="Invalid Account"
+		return true, einfo
+	}
 	cmnt := IDToComment.GetI(query.CommentID)
 	post, ok := IDToPost.Get(query.PostID)
-	if (!ok) {return true, map[string]any{"error":"Invalid PostID"}}
+	if (!ok) {
+		einfo.Left="Invalid PostID"
+		einfo.Right="/social/all"
+		return true, einfo
+	}
+
 	commentText := r.FormValue("commentText")
-	//TODO: better tests
+
+	//TODO: better tests on only spaces etc
 	if (commentText == "") {
-		return true, map[string]any{"error":"Comment with no body"}
+		einfo.Left="Comment with no body"
+		return true, einfo
 	}
 
 	createComment(acc, commentText, post, cmnt)
@@ -274,7 +299,7 @@ func postsEndpoint(w HttpWriter, r HttpReq, info map[string]any) (render bool, a
 }
 
 func MDToHTML(MD string) (HTML template.HTML) {
-	return template.HTML(string(markdown.ToHTML([]byte(html.EscapeString(MD)), nil, nil)))
+	return template.HTML(string(markdown.ToHTML([]byte((MD)), nil, nil)))
 }
 
 type SortMethod = int64
@@ -418,6 +443,17 @@ func (R ReactionInfo) HTMLstr(selected uint64, postid int64) (string) {
 	})
 }
 
+var ReactionHTMLComment = InlineUnsafeComponent(`
+	<button
+		title="{{ .R.Name }}" style="{{ .R.AltStyle }}" class="reaction {{ .class }}"
+		{{ .action }}="/social/comments/react?reaction={{ .R.ID }}&commentid={{ .commentid }}"
+		hx-target="#comment-{{ .commentid }} > span.reactions"
+		hx-swap="outerHTML"
+	>
+		<img src="{{.R.Img}}" alt="{{.R.Alt}}">
+	</button>
+`)
+
 func (R ReactionInfo) HTMLstrComment(selected uint64, commentid int64) (string) {
 	if (R.ID == 0) {return ""}
 	class:="notSelected"
@@ -426,20 +462,12 @@ func (R ReactionInfo) HTMLstrComment(selected uint64, commentid int64) (string) 
 		class="selected"
 		action="hx-delete"
 	}
-	return fmt.Sprintf(`
-	<button
-		title=%q style=%q class="reaction %s"
-		%s="/social/comments/react?reaction=%d&commentid=%d"
-		hx-target="#comment-%d > span.reactions"
-		hx-swap="outerHTML"
-	>
-		<img src=%q alt=%q>
-	</button>
-	`, R.Name, R.AltStyle, class,
-		action, R.ID, commentid,
-		commentid,
-		R.Img, R.Alt,
-	)
+	return ReactionHTMLComment.RenderString(map[string]any{
+		"R":R,
+		"class":class,
+		"commentid":commentid,
+		"action":action,
+	})
 }
 
 const (
@@ -514,58 +542,16 @@ type Comment struct {
 	// ReactionCount for specific analytics
 }
 
-func (C Comment) HTML(reaction uint64, viewer int64) template.HTML {
-	return template.HTML(fmt.Sprintf(`
-	<div class="comment" id="comment-%d">
-	<span class="op">
-		<span class="name">%s</span>
-		<span class="email">%s</span>
-	</span>
-	<span id="reactions" class="reactions">
-		<span class="reactionCount">
-			<span class="likes"> %d </span>
-			<span class="dislikes"> %d </span>
-		</span>
-		<span class="react"> %s </span>
-	</span>
-	<div class="content">
-		%s
-	</div>
-	%s
-	</div>
-	`, C.CommentID,
-	C.Commenter.Name, C.Commenter.Email,
-	C.LikeCount.Load(), C.DislikeCount.Load(),
-	HTMLCommentReactions(reaction, C.CommentID),
-	C.CommentHTML, C.HTMLChildren(viewer, 0),
-))
-}
+var CommentHTMLComponent = TemplatedComponent("html/social/components/comment.gohtml")
 
-func (C Comment) HTMLChildren(viewer int64, depth int) string {
-	cum := ""
-	for _, cmt := range C.Children {
-		r := cmt.Reactions.GetI(viewer)
-		cum += cmt.ChildHTML(r, viewer, depth)
-	}
-	return `<div class="children">`+cum+`</div>`
-}
-
-func (C Comment) ChildHTML(reaction uint64, viewer int64, depth int) string {
-	return fmt.Sprintf(`
-	<div class="comment border_%d" id="comment-%d">
-	<span class="op">
-		<span class="name">%s</span>
-		<span class="email">%s</span>
-	</span>
-	<div class="content">
-		%s
-	</div>
-	%s
-	</div>
-	`, (depth%4)+1, C.CommentID,
-	C.Commenter.Name, C.Commenter.Email,
-	C.CommentHTML, C.HTMLChildren(viewer, depth+1),
-)
+func (C Comment) HTMLR(viewer int64, depth int) template.HTML {
+	return template.HTML(CommentHTMLComponent.RenderString( map[string]any{
+		"comment":C,
+		"depth": depth,
+		"nextdepth": (depth%4)+1,
+		"viewer":viewer,
+		"allreactions":ReactionsInfo,
+	}))
 }
 
 // maps
@@ -723,8 +709,11 @@ func createComment(creator *Account, commentText string, parentPost *Post, paren
 	SET commentCount = commentCount + 1
 	WHERE postID=?;
 	`, parentPost.PostID)
-	//CommentToPost.Set(c, parentPost)
-	parentPost.Comments = append(parentPost.Comments, c)
+
+	// parentPost.Comments only accept root comments
+	if (parentComment == nil) {
+		parentPost.Comments = append(parentPost.Comments, c)
+	}
 	if (e != nil) {panic(e)}
 	return
 }

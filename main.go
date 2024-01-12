@@ -137,6 +137,8 @@ func main() {
 	http.Handle("/social/posts/react", service.ReactToPostEndpoint)
 	http.Handle("/social/comments/react", service.ReactToCommentEndpoint)
 	http.Handle("/social/comments/create", service.CreateCommentEndpoint)
+	http.Handle("/social/comp/reply-form", service.CompReplyFormEndpoint)
+	http.Handle("/social/comp/reply-button", service.CompReplyButtonEndpoint)
 
 	FLog(FLOG_INFO, "Running\n")
 	panic(http.ListenAndServe("0.0.0.0:8080", nil))
