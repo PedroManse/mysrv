@@ -5,12 +5,14 @@
 </head>
 <body>
 	{{ template "nav" . }}
+	{{ template "social-tab" 4 }}
 	{{ template "social-create" . }}
 	{{if .logic.error}}
 		<h1>{{.logic.error}}</h1>
 	{{else}}
 	<form method="POST">
 		<textarea name="postText"></textarea>
+		<br>
 		<select name="communityid">
 			<option title="/social community for all" value="1">SocAll</option>
 			<option title="4i7t IT workers complaining about working in IT" value="2">IIIITTTTTTT</option>

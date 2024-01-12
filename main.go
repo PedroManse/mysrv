@@ -131,7 +131,7 @@ func main() {
 	// TODO: literally most parts
 
 	// social media
-	http.Handle("/social/all", service.CardsEndpoint)
+	http.Handle("/social/all", service.AllEndpoint)
 	http.Handle("/social/posts", service.PostPageEndpoint)
 	http.Handle("/social/posts/create", service.CreatePostPageEndpoint)
 	http.Handle("/social/posts/react", service.ReactToPostEndpoint)

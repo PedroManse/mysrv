@@ -85,7 +85,7 @@ CREATE TABLE IF NOT EXISTS social_comment_reaction (
 );
 `
 
-var CardsEndpoint = LogicPage(
+var AllEndpoint = LogicPage(
 	"html/social/cards.gohtml",
 	map[string]any{
 		"allreactions":ReactionsInfo,
@@ -94,6 +94,8 @@ var CardsEndpoint = LogicPage(
 	[]GOTMPlugin{ GOTM_account, GOTM_mustacc, GOTM_urlInfo},
 	postsEndpoint,
 )
+var SubbedEndpoint ContentServer = nil
+var SavedEndpoint ContentServer = nil
 
 var PostPageEndpoint = LogicPage(
 	"html/social/post.gohtml",
@@ -156,6 +158,7 @@ type SocialQuery struct {
 	Reaction ReactionType
 	PostCount int64
 	UseSort SortMethod
+	UseSort_str string
 }
 
 func prelude(w HttpWriter, r HttpReq, info map[string]any) (acc *Account, query SocialQuery, ok bool) {
@@ -179,6 +182,7 @@ func prelude(w HttpWriter, r HttpReq, info map[string]any) (acc *Account, query 
 	query.Reaction, _     = strconv.ParseUint(r.FormValue("reaction"), 10, 64)
 	query.PostCount, _    = strconv.ParseInt(r.FormValue("postcount"), 10, 64)
 	query.UseSort         = SortNameToID.GetI(r.FormValue("sortmethod"))
+	query.UseSort_str     = r.FormValue("sortmethod")
 	if (query.PostCount == 0) {
 		query.PostCount = 10
 	}
@@ -275,7 +279,7 @@ func postEndpoint(w HttpWriter, r HttpReq, info map[string]any) (render bool, ad
 	pid := query.PostID
 	P, ok := IDToPost.Get(pid)
 	if (!ok) {return true, map[string]any{"error":"Invalid PostId"}}
-	return true, map[string]any{"post":P}
+	return true, map[string]any{ "post":P  }
 }
 
 func postsEndpoint(w HttpWriter, r HttpReq, info map[string]any) (render bool, addinfo any) {

@@ -46,3 +46,10 @@ button.reply-getter {
 	}
 }
 
+div.comment:target {
+	border-top: dashed;
+	border-bottom: dashed;
+	border-top-color: #E1E1E166;
+	border-bottom-color: #E1E1E166;
+}
+

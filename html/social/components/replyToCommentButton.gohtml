@@ -3,7 +3,7 @@
 
 <button
 class="reply reply-getter"
-hx-swap="after closest .content"
+hx-swap="outerHTML"
 hx-get="/social/comp/reply-form?postid={{$pid}}&commentid={{$cid}}"
 >
 	<img alt="Reply!" src="/files/img/social/actions_reply.ico"></img>

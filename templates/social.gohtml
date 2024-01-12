@@ -1,24 +1,54 @@
 <!DOCTYPE html>
 
 {{ define "social-create" }}
+	<style>
+
+a.tab {
+	border-right-style: ridge;
+	text-decoration: none;
+	background-color: #1F1F1F;
+	color: white;
+	border-top-style: groove;
+}
+
+	</style>
 	<center>
-		<a class="selections" href="/social/all">/all!</a>
-		<a class="selections" href="/social/subbed">/subbed!</a>
-		<a class="selections" href="/social/saved">/saved!</a>
-		<a class="action" href="/social/posts/create">Create a post!</a>
-		<a class="action" href="/social/community/create">Create a community!</a>
+		<a class="sec_1 tab section" href="/social/all">All Posts!</a>
+		<a class="sec_2 tab section" href="/social/subbed">Subbed Communities!</a>
+		<a class="sec_3 tab section" href="/social/saved">Saved Posts!</a>
+		<a class="sec_4 tab action" href="/social/posts/create">Create a post!</a>
+		<a class="sec_5 tab action" href="/social/community/create">Create a community!</a>
 	</center>
 {{ end }}
 
+{{ define "social-tab" }}
+<style>
+a.tab.sec_{{.}} {
+	color: red;
+}
+</style>
+{{ end }}
+
+
 {{ define "social-posts" }}
+	<style>
+
+a.tab {
+	border-right-style: ridge;
+	text-decoration: none;
+	background-color: #1F1F1F;
+	color: white;
+	border-top-style: groove;
+}
+
+	</style>
 	<center>
 		{{ template "social-sort" . }}
-		&nbsp;
-		<a class="selections" href="/social/all">/all!</a>
-		<a class="selections" href="/social/subbed">/subbed!</a>
-		<a class="selections" href="/social/saved">/saved!</a>
-		<a class="action" href="/social/posts/create">Create a post!</a>
-		<a class="action" href="/social/community/create">Create a community!</a>
+		<a class="sec_1 tab section" href="/social/all">All Posts!</a>
+		<a class="sec_2 tab section" href="/social/subbed">Subbed Communities!</a>
+		<a class="sec_3 tab section" href="/social/saved">Saved Posts!</a>
+		<a class="sec_4 tab action" href="/social/posts/create">Create a post!</a>
+		<a class="sec_5 tab action" href="/social/community/create">Create a community!</a>
 	</center>
 {{ end }}
 
