@@ -1,8 +1,11 @@
 <!DOCTYPE html>
 
-{{ define "social-create" }}
+{{ define "social-nav-tab-style" }}
 	<style>
 
+#social-nav-tabs {
+	padding-top: 5px;
+}
 a.tab {
 	border-right-style: ridge;
 	text-decoration: none;
@@ -12,12 +15,16 @@ a.tab {
 }
 
 	</style>
-	<center>
-		<a class="sec_1 tab section" href="/social/all">All Posts!</a>
-		<a class="sec_2 tab section" href="/social/subbed">Subbed Communities!</a>
-		<a class="sec_3 tab section" href="/social/saved">Saved Posts!</a>
-		<a class="sec_4 tab action" href="/social/posts/create">Create a post!</a>
-		<a class="sec_5 tab action" href="/social/community/create">Create a community!</a>
+{{ end }}
+
+{{ define "social-focus" }}
+	{{ template "social-nav-tab-style"}}
+	<center id="social-nav-tabs">
+		<a class="sec_1 tab section" href="/social/all">All Posts</a>
+		<a class="sec_2 tab section" href="/social/subbed">Subbed Communities</a>
+		<a class="sec_3 tab section" href="/social/saved">Saved Posts</a>
+		<a class="sec_4 tab action" href="/social/posts/create">Create a post</a>
+		<a class="sec_5 tab action" href="/social/community/create">Create a community</a>
 	</center>
 {{ end }}
 
@@ -30,25 +37,15 @@ a.tab.sec_{{.}} {
 {{ end }}
 
 
-{{ define "social-posts" }}
-	<style>
-
-a.tab {
-	border-right-style: ridge;
-	text-decoration: none;
-	background-color: #1F1F1F;
-	color: white;
-	border-top-style: groove;
-}
-
-	</style>
-	<center>
-		{{ template "social-sort" . }}
-		<a class="sec_1 tab section" href="/social/all">All Posts!</a>
-		<a class="sec_2 tab section" href="/social/subbed">Subbed Communities!</a>
-		<a class="sec_3 tab section" href="/social/saved">Saved Posts!</a>
-		<a class="sec_4 tab action" href="/social/posts/create">Create a post!</a>
-		<a class="sec_5 tab action" href="/social/community/create">Create a community!</a>
+{{ define "social-listing" }}
+	{{ template "social-nav-tab-style"}}
+	{{ template "social-sort" . }}
+	<center id="social-nav-tabs">
+		<a class="sec_1 tab section" href="/social/all">All Posts</a>
+		<a class="sec_2 tab section" href="/social/subbed">Subbed Communities</a>
+		<a class="sec_3 tab section" href="/social/saved">Saved Posts</a>
+		<a class="sec_4 tab action" href="/social/posts/create">Create a post</a>
+		<a class="sec_5 tab action" href="/social/community/create">Create a community</a>
 	</center>
 {{ end }}
 
@@ -64,16 +61,24 @@ addEventListener("load", ()=>{
 })
 
 </script>
+<style>
+#social-nav-sortmethod {
+	position: absolute;
+	float: left;
+}
+</style>
 {{ $sm := .urlinfo.query.Get "sortmethod" }}
-<label for="social-sortmethod-selection">Sort Method:</label>
-<select id="social-sortmethod-selection">
-	{{ range $i := .allsorts }}
-		{{ if eq $sm $i}}
-			<option selected value="{{$i}}">{{$i}}</option>
-		{{ else }}
-			<option value="{{$i}}">{{$i}}</option>
+<span id="social-nav-sortmethod">
+	<label for="social-sortmethod-selection">Sort Method:</label>
+	<select id="social-sortmethod-selection">
+		{{ range $i := .allsorts }}
+			{{ if eq $sm $i}}
+				<option selected value="{{$i}}">{{$i}}</option>
+			{{ else }}
+				<option value="{{$i}}">{{$i}}</option>
+			{{ end }}
 		{{ end }}
-	{{ end }}
-</select>
+	</select>
+</span>
 {{ end }}
 
