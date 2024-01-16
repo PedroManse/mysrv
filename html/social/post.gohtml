@@ -8,7 +8,7 @@
 </head>
 <body>
 	{{ template "nav" . }}
-	{{ template "social-create" . }}
+	{{ template "social-focus" . }}
 	{{ if .logic.error }}
 		<h1>{{.logic.error}}</h1>
 	{{ else }}
@@ -23,9 +23,14 @@
 				</a>
 			</span>
 
+			<span class="postTime">
+				{{ .logic.post.PostTime.Format "02/01/2006 03:04:05PM" }}
+			</span>
+
 			<div class="content">
 				{{ .logic.post.PostHTML }}
 			</div>
+
 			{{ $userReaction := .logic.post.Reactions.GetI .acc.id }}
 			<span id="reactions" class="reactions">
 				<span class="reactionCount">
@@ -40,9 +45,6 @@
 			</span>
 			<span class="commentCount" title="{{ .logic.post.CommentCount.Load }} Comments">
 				{{ .logic.post.CommentCount.Load }}
-			</span>
-			<span class="postTime">
-				{{ .logic.post.PostTime.Format "02/01/2006 03:04:05PM" }}
 			</span>
 		</div>
 		<div class="comments">

@@ -13,7 +13,7 @@
 <body>
 	{{ template "nav" . }}
 	{{ template "social-tab" 1 }}
-	{{ template "social-posts" . }}
+	{{ template "social-listing" . }}
 	{{ range $_, $post := .logic.posts }}
 	{{if $post}}
 		<div class="post card" id="post-{{ $post.PostID }}">
@@ -26,6 +26,10 @@
 				<a href="/social/community?communityid={{$post.Community.CommunityID}}">
 					{{$post.Community.Name}}
 				</a>
+			</span>
+
+			<span class="postTime">
+				{{ $post.PostTime.Format "02/01/2006 03:04:05PM" }}
 			</span>
 
 			<div class="content">
@@ -51,9 +55,6 @@
 
 			<span class="commentCount" title="{{ $post.CommentCount.Load }} Comments">
 				{{ $post.CommentCount.Load }}
-			</span>
-			<span class="postTime">
-				{{ $post.PostTime.Format "02/01/2006 03:04:05PM" }}
 			</span>
 
 		</div>

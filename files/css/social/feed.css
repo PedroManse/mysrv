@@ -13,8 +13,8 @@ div.post {
 	margin: 4px;
 }
 
+span.commentCount {padding-left: 22px;}
 span.commentCount:before { content: "💬"; }
-span.commentCount:after { content: " | "; }
 div.post > div.comments > div { font-size: 18px; }
 div.post > div.content { font-size: 28px; }
 
@@ -104,3 +104,6 @@ a.fill-div {
 	text-decoration: none;
 }
 
+span.postTime {
+	float: right;
+}
