@@ -12,21 +12,17 @@ div.post.page {
 	}
 }
 
-div.comments {
-	div.comment {
-		div.content {
-			p {
-				margin: 2px 0px 4px 3px;
-			}
-		}
-	}
-}
-
 div.comment {
+	border-right-style: none;
 	border-style: unset;
 	border-left-style: solid;
 	margin: 4px;
 	padding: 4px;
+	margin-right: 0;
+	padding-right: 0;
+
+	p { margin: 2px 0px 4px 3px; }
+
 	.border_1 { border-color: darkblue; }
 	.border_2 { border-color: darkred; }
 	.border_3 { border-color: darkgreen; }
@@ -51,5 +47,9 @@ div.comment:target {
 	border-bottom: dashed;
 	border-top-color: #E1E1E166;
 	border-bottom-color: #E1E1E166;
+}
+
+span.commentLink {
+	float: right;
 }
 

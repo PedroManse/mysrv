@@ -1,10 +1,12 @@
 {{ $userReaction := .comment.Reactions.GetI .viewer }}
 
 <div class="comment border_{{.depth}}" id="comment-{{.comment.CommentID}}">
+
 	<span class="op">
 		<span class="name">{{ .comment.Commenter.Name }}</span>
 		<span class="email">{{ .comment.Commenter.Email }}</span>
 	</span>
+
 	<span id="reactions" class="reactions">
 		<span class="reactionCount">
 			<span class="likes"> {{ .comment.LikeCount.Load }} </span>
@@ -16,6 +18,7 @@
 			{{ end }}
 		</span>
 	</span>
+
 	<button
 		class="reply reply-getter"
 		hx-swap="outerHTML"
@@ -23,9 +26,19 @@
 	>
 		<img alt="Reply!" src="/files/img/social/actions_reply.ico"></img>
 	</button>
+
+	<span class="commentTime">
+		{{ .comment.CommentTime.Format "02/01/2006 03:04:05PM" }}
+	</span>
+
+	<span class="commentLink">
+		<a href="/social/posts?postid={{.comment.Post.PostID}}#comment-{{.comment.CommentID}}">This</a>
+	</span>
+
 	<div class="content">
 		{{ .comment.CommentHTML }}
 	</div>
+
 	<div class="children">
 		{{ range $i, $child := .comment.Children }}
 			{{ $child.HTMLR $.viewer $.nextdepth }}

@@ -104,6 +104,7 @@ a.fill-div {
 	text-decoration: none;
 }
 
-span.postTime {
+span.postTime, span.commentTime {
 	float: right;
 }
+
