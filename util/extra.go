@@ -18,6 +18,14 @@ type SyncMap[Key comparable, Value any] struct {
 	MUTEX sync.Mutex
 }
 
+func (S *SyncMap[K, V]) Lock() {
+	S.MUTEX.Lock()
+}
+
+func (S *SyncMap[K, V]) Unlock() {
+	S.MUTEX.Unlock()
+}
+
 func NewSyncMap[Key comparable, Value any]() *SyncMap[Key, Value] {
 	return &SyncMap[Key, Value]{
 		make(map[Key]Value),
@@ -45,34 +53,34 @@ func (S *SyncMap[K, V]) Init() {
 }
 
 func (S *SyncMap[K, V]) Set(key K, value V) {
-	S.MUTEX.Lock()
-	defer S.MUTEX.Unlock()
+	S.Lock()
+	defer S.Unlock()
 	S.MAP[key] = value
 }
 
 func (S *SyncMap[K, V]) Get(key K) (v V, has bool) {
-	S.MUTEX.Lock()
-	defer S.MUTEX.Unlock()
+	S.Lock()
+	defer S.Unlock()
 	v, has = S.MAP[key]
 	return
 }
 
 func (S *SyncMap[K, V]) Unset(key K) {
-	S.MUTEX.Lock()
-	defer S.MUTEX.Unlock()
+	S.Lock()
+	defer S.Unlock()
 	delete(S.MAP, key)
 }
 
 func (S *SyncMap[K, V]) Has(key K) ( has bool ) {
-	S.MUTEX.Lock()
-	defer S.MUTEX.Unlock()
+	S.Lock()
+	defer S.Unlock()
 	_, has = S.MAP[key]
 	return has
 }
 
 func (S *SyncMap[K, V]) GetI(key K) (v V) {
-	S.MUTEX.Lock()
-	defer S.MUTEX.Unlock()
+	S.Lock()
+	defer S.Unlock()
 	return S.MAP[key]
 }
 
@@ -86,8 +94,8 @@ func (T Tuple[K, V]) Unpack() (K, V) {
 }
 
 func (S *SyncMap[K, V]) Iter() <-chan Tuple[K, V] {
-	S.MUTEX.Lock()
-	defer S.MUTEX.Unlock()
+	S.Lock()
+	defer S.Unlock()
 
 	tchan := make(chan Tuple[K, V], len(S.MAP))
 	for k,v := range S.MAP {
@@ -98,8 +106,8 @@ func (S *SyncMap[K, V]) Iter() <-chan Tuple[K, V] {
 }
 
 func (S *SyncMap[K, V]) IterValues() <-chan V {
-	S.MUTEX.Lock()
-	defer S.MUTEX.Unlock()
+	S.Lock()
+	defer S.Unlock()
 
 	tchan := make(chan V, len(S.MAP))
 	for _,v := range S.MAP {
@@ -110,8 +118,8 @@ func (S *SyncMap[K, V]) IterValues() <-chan V {
 }
 
 func (S *SyncMap[K, V]) IterKeys() <-chan K {
-	S.MUTEX.Lock()
-	defer S.MUTEX.Unlock()
+	S.Lock()
+	defer S.Unlock()
 
 	tchan := make(chan K, len(S.MAP))
 	for k := range S.MAP {
@@ -122,8 +130,8 @@ func (S *SyncMap[K, V]) IterKeys() <-chan K {
 }
 
 func (S *SyncMap[K, V]) Copy() (m SyncMap[K, V]) {
-	S.MUTEX.Lock()
-	defer S.MUTEX.Unlock()
+	S.Lock()
+	defer S.Unlock()
 	m.MAP = make(map[K]V)
 	for k,v:=range S.MAP {
 		m.MAP[k] = v
@@ -133,13 +141,19 @@ func (S *SyncMap[K, V]) Copy() (m SyncMap[K, V]) {
 }
 
 func (S *SyncMap[K, V]) AMap() (m map[K]V) {
-	S.MUTEX.Lock()
-	defer S.MUTEX.Unlock()
+	S.Lock()
+	defer S.Unlock()
 	m = make(map[K]V)
 	for k,v:=range S.MAP {
 		m[k] = v
 	}
 	return
+}
+
+func (S *SyncMap[K, V]) Len() (int) {
+	S.Lock()
+	defer S.Unlock()
+	return len(S.MAP)
 }
 
 func RevertMap[K comparable, V comparable](mp map[K]V) (newmp map[V]K) {
