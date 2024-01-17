@@ -19,17 +19,6 @@ type GOTMPlugin struct {
 	Plug Plugin
 }
 
-/* example
-func GOTM_example(w HttpWriter, r HttpReq, info map[string]any) any {
-	return 4
-}
-var GOTM_acc GOTMPlugin = {"acc", GOTM_example}
-
-index := TemplatePage(
-	"html/index.gohtml", nil, {GOTM_acc},
-)
-*/
-
 /*
 
 Content Server/Renderer Creators
@@ -66,32 +55,27 @@ interaface {
 
 */
 
-/* Func list TODO
-StaticFile
-StaticComponent
-DynamicPage
-DynamicComponent
-DynamicPluggedPage
-DynamicPluggedComponent
-TemplatedLogicedPluggedPage
-TemplatedLogicedPluggedComponent
-TemplatedPluggedPage
-TemplatedPluggedComponent
-TemplatedLogicedPage
-TemplatedLogicedComponent
-TemplatedPage
-TemplatedComponent
-*/
-
-// old alliases
-var LogicPage = TemplatedLogicedPluggedPage
-var TemplatePage = TemplatedPluggedPage
-
 type ContentServer = http.Handler
 type ContentRenderer interface {
 	Render(w io.Writer, info any)
 	RenderString(info any) string
 }
+
+/*
+TemplatedComponent
+InlineComponent
+InlineUnsafeComponent
+DynamicPluggedPage
+DynamicPage
+TemplatedLogicedPluggedPage
+TemplatedPluggedPage
+TemplatedLogicedPage
+TemplatedPage
+StaticFile
+StaticComponent
+TemplatePage
+LogicPage
+*/
 
 func TemplatedComponent ( filename string ) ContentRenderer {
 	return templatedComponent{tmpl(filename)}
@@ -106,10 +90,10 @@ func InlineUnsafeComponent ( filename string ) ContentRenderer {
 }
 
 // DynamicPage without plugins is just a user function
-var DynamicPage = DynamicPluggedPage
 func DynamicPluggedPage(info map[string]any, plugins []GOTMPlugin, fn Plugin) ContentServer {
 	return dynamicPage{ infomap(info), logicpluglist(fn, plugins) }
 }
+var DynamicPage = DynamicPluggedPage
 
 func TemplatedLogicedPluggedPage(file string, info map[string]any, plugins []GOTMPlugin, fn Plugin) (ContentServer) {
 	return templatedPage{ tmpl(file), infomap(info), logicpluglist(fn, plugins) }
@@ -129,6 +113,10 @@ func TemplatedPage(file string, info map[string]any) (ContentServer) {
 
 func StaticFile(filename string) ContentServer { return staticServer{filename} }
 var StaticComponent = StaticFile
+
+// legacy alliases
+var LogicPage = TemplatedLogicedPluggedPage
+var TemplatePage = TemplatedPluggedPage
 
 // the 4 Content Servers
 // as is
@@ -208,6 +196,7 @@ func tmpl(filename string) anyTemplate {
 	)
 }
 
+// _u suffix means unsafe (non-html) template
 func tmpl_u(filename string) anyTemplate {
 	return unsafeTemplate.Must(
 		unsafeTemplate.Must(
