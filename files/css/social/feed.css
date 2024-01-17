@@ -15,7 +15,6 @@ div.post {
 
 span.commentCount {padding-left: 22px;}
 span.commentCount:before { content: "💬"; }
-div.post > div.comments > div { font-size: 18px; }
 div.post > div.content { font-size: 28px; }
 
 span.reactions > span.react > button.reaction {
@@ -74,7 +73,6 @@ span.reactions {
 		}
 	}
 }
-
 
 div.post {
 

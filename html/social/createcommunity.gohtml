@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<title>PostBoard | Create Community</title>
+	<link href="/files/css/social/create.css" rel="stylesheet" type="text/css">
+</head>
+<body>
+	{{ template "nav" . }}
+	{{ template "social-tab" 5 }}
+	{{ template "social-focus" }}
+
+	{{ if .logic }}
+	<h1 class="fail">{{.logic.error}}</h1>
+	{{ else }}
+	<form method="POST" action="/social/community/create">
+		<label for="comm-name">Community's Name:</label>
+		<input id="comm-name" name="comm-name" type="text">
+		<br>
+		<label for="comm-desc">Community's Description:</label>
+		<input id="comm-desc" name="comm-desc" type="text">
+		<br>
+		<button>Create!</button>
+	</form>
+	{{ end }}
+</body>
+</html>

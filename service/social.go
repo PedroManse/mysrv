@@ -2,6 +2,7 @@ package service
 
 import (
 	. "mysrv/util"
+	// sync/atomic.Uint64 for go1.18
 	verfit "mysrv/verfitting"
 	"time"
 	"fmt"
@@ -12,15 +13,6 @@ import (
 	"sort"
 	"net/http"
 )
-
-/*
-DROP TABLE social_community;
-DROP TABLE social_sub;
-DROP TABLE social_post;
-DROP TABLE social_comment;
-DROP TABLE social_post_reaction;
-DROP TABLE social_comment_reaction;
-*/
 
 var socialSQLTables = `
 
@@ -107,8 +99,20 @@ var PostPageEndpoint = LogicPage(
 	postEndpoint,
 )
 
+var CreateCommunityEndpoint = LogicPage(
+	"html/social/createcommunity.gohtml",
+	map[string]any{
+		"allcommunities":&IDToCommunity,
+	},
+	[]GOTMPlugin{ GOTM_account, GOTM_mustacc },
+	createcommunityEndpoint,
+)
+
 var CreatePostPageEndpoint = LogicPage(
-	"html/social/createpost.gohtml", nil,
+	"html/social/createpost.gohtml",
+	map[string]any{
+		"allcommunities":&IDToCommunity,
+	},
 	[]GOTMPlugin{ GOTM_account, GOTM_mustacc },
 	createpostEndpoint,
 )
@@ -251,6 +255,28 @@ func reactToPostEndpoint( w HttpWriter, r HttpReq, info map[string]any) (render 
 	}
 }
 
+func createcommunityEndpoint(w HttpWriter, r HttpReq, info map[string]any) (render bool, addinfo any) {
+	acc, _, ok := prelude(w, r, info)
+	if (!ok) {return true, map[string]any{"error":"Invalid Account"}}
+	if (r.Method == "GET") {
+		return true, nil
+	} else if (r.Method=="POST") {
+		name := RemoveSpace(r.FormValue("comm-name"))
+		desc := RemoveSpace(r.FormValue("comm-desc"))
+		a, exists := NameToCommunity.Get(name)
+		fmt.Println(name, desc, a, exists)
+		if (exists) {
+			return true, map[string]any{"error":"Community with this name already exists"}
+		} else if (len(name) == 0 || len(desc) == 0) {
+			return true, map[string]any{"error":"Invalid Community Name or Description"}
+		} else {
+			createCommunity(acc, name, desc)
+		}
+	}
+	w.WriteHeader(http.StatusBadRequest)
+	return false, nil
+}
+
 func createpostEndpoint(w HttpWriter, r HttpReq, info map[string]any) (render bool, addinfo any) {
 	acc, query, ok := prelude(w, r, info)
 	if (!ok) {return true, map[string]any{"error":"Invalid Account"}}
@@ -262,8 +288,6 @@ func createpostEndpoint(w HttpWriter, r HttpReq, info map[string]any) (render bo
 		comm, ok := IDToCommunity.Get(cid)
 		if (!ok) {return true, map[string]any{"error":"Invalid Community"}}
 
-		fmt.Println(cid)
-		fmt.Println(txt)
 		pid := createPost(acc, txt, comm).PostID
 		http.Redirect(w, r, fmt.Sprintf("/social/posts?postid=%d", pid), http.StatusFound)
 		return false, nil
@@ -563,6 +587,7 @@ var (
 	IDToPost SyncMap[int64, *Post]
 	IDToComment SyncMap[int64, *Comment]
 	IDToCommunity SyncMap[int64, *Community]
+	NameToCommunity SyncMap[string, *Community]
 
 	// user ID -> sub list
 	UIDToSubs SyncMap[*Account, []*Community]
@@ -577,6 +602,7 @@ func init() {
 	IDToPost.Init()
 	IDToComment.Init()
 	IDToCommunity.Init()
+	NameToCommunity.Init()
 	UIDToSubs.Init()
 	CIDToSubs.Init()
 	//CommentToPost.Init()
@@ -665,6 +691,7 @@ func createCommunity(creator *Account, name string, description string) (c *Comm
 
 	subTo(creator, c)
 	IDToCommunity.Set(commID, c)
+	NameToCommunity.Set(name, c)
 
 	return
 }
@@ -910,6 +937,7 @@ FROM social_community`)
 
 		_loadsubTo(acc, c)
 		IDToCommunity.Set(communityID, c)
+		NameToCommunity.Set(name, c)
 	}
 	return
 }

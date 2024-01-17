@@ -5,3 +5,9 @@ body {
 	margin: 4px;
 }
 
+form {
+	padding-top: 30px;
+	text-align: center;
+	padding: 15px;
+}
+

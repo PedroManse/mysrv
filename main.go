@@ -139,6 +139,7 @@ func main() {
 	http.Handle("/social/comments/create", service.CreateCommentEndpoint)
 	http.Handle("/social/comp/reply-form", service.CompReplyFormEndpoint)
 	http.Handle("/social/comp/reply-button", service.CompReplyButtonEndpoint)
+	http.Handle("/social/community/create", service.CreateCommunityEndpoint)
 
 	FLog(FLOG_INFO, "Running\n")
 	panic(http.ListenAndServe("0.0.0.0:8080", nil))

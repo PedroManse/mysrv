@@ -3,6 +3,7 @@ package util
 import (
 	"hash/fnv"
 	"sync"
+	"strings"
 )
 
 type HashResult = uint32
@@ -248,5 +249,9 @@ func (WB WriteBuffer) String() (string) {
 
 func (WB WriteBuffer) Bytes() ([]byte) {
 	return **WB.Buffer
+}
+
+func RemoveSpace(in string) (out string) {
+	return strings.TrimSpace(in)
 }
 

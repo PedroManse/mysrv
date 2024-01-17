@@ -14,8 +14,9 @@
 		<textarea name="postText"></textarea>
 		<br>
 		<select name="communityid">
-			<option title="/social community for all" value="1">SocAll</option>
-			<option title="4i7t IT workers complaining about working in IT" value="2">IIIITTTTTTT</option>
+			{{ range $comm := .allcommunities.IterValues }}
+				<option title={{$comm.Description}} value={{$comm.CommunityID}}>{{$comm.Name}}</option>
+			{{ end }}
 		</select>
 		<button type="submit">Post!</button>
 	</form>
