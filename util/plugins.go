@@ -6,14 +6,14 @@ import (
 )
 
 var (
-	log_area = NewArea("GOTM.Log")
+	log_area = FLog.NewArea("GOTM.Log")
 )
 
 // may use r.URL.User in chat
 // side effect executes request.ParseForm
 func log(w HttpWriter, r HttpReq, info map[string]any) (render bool, addinfo any) {
 	r.ParseForm()
-	FLog(log_area, "new HTTP conn [%s] @ %s {%+v}\nGOTMP info: %+v\n\n", r.Method, r.URL.Path, r.Form, info)
+	FLog.Printf(log_area, "new HTTP conn [%s] @ %s {%+v}\nGOTMP info: %+v\n", r.Method, r.URL.Path, r.Form, info)
 	return true, nil
 }
 var GOTM_log = GOTMPlugin{"", log}

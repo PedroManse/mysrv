@@ -141,6 +141,8 @@ func main() {
 	http.Handle("/social/comp/reply-button", service.CompReplyButtonEndpoint)
 	http.Handle("/social/community/create", service.CreateCommunityEndpoint)
 
-	FLog(FLOG_INFO, "Running\n")
+	FLog.Printf(FLOG_INFO, "Running")
+	FLog.Printf(FLOG_ERROR|FLOG_INFO, "%v", FLog.Areas)
+	FLog.Printf(FLOG_ERROR|FLOG_INFO, "%v", FLog.Areas)
 	panic(http.ListenAndServe("0.0.0.0:8080", nil))
 }

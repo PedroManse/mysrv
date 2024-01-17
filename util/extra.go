@@ -255,3 +255,8 @@ func RemoveSpace(in string) (out string) {
 	return strings.TrimSpace(in)
 }
 
+type constError string
+func(err constError) Error() string {
+	return string(err)
+}
+

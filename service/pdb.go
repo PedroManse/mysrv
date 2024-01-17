@@ -94,7 +94,7 @@ func pdbRead(id int64) [][]string {
 		if errors.Is(err, sql.ErrNoRows) {
 			rowcount = 1
 			colcount = 1
-			FLog(SQLArea, "creating pdb entry for [%d]\n", id)
+			FLog.Printf(SQLArea, "creating pdb entry for [%d]\n", id)
 			_, err = SQLDo("create pdb info entry", "INSERT INTO pdb_info (accid) VALUES (?)", id)
 			if (err != nil) {panic(err)}
 		} else {
@@ -188,7 +188,7 @@ func PDBHandler(w HttpWriter, r HttpReq) {
 		} else if (pdbupdate.Row != "" && pdbupdate.Col == "") {
 			e = pdbRemoveRow(id, pdbupdate.Row)
 		} else {
-			FLog(FLOG_ERROR, "User [%d] tried to remove row and column or neither\n", id)
+			FLog.Printf(FLOG_ERROR, "User [%d] tried to remove row and column or neither\n", id)
 			w.WriteHeader(http.StatusBadRequest)
 			panic("User tried to remove row and column or neither")
 		}

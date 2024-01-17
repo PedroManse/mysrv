@@ -2,95 +2,137 @@ package util
 
 import (
 	"time"
-	"math"
 	"fmt"
+	"io"
 	"os"
+	"strings"
 )
 
-type color struct {
-	fr, fg, fb byte
-	br, bg, bb byte
-}
 type Area struct {
-	Name string
-	id int
-	color color
-	enabled bool
+	ID uint64
+	Text string
+	Enabled bool
 }
-var areas = []Area{}
-var AreaNC Area = Area{"", -1, color{255,255,255, 0, 0, 0}, true}
-var AreaDivision string = " "
 
-func GetArea(flag int) Area {
-	id := int(math.Logb(float64(flag)))
-	if (id<len(areas)) {
-		return AreaNC
+type Section []Area
+func (Sec Section) String(selection uint64, AD, SOA, EOA string) (out string) {
+	var selected bool
+	var ars = []string{}
+	for _, area := range Sec {
+		if (!area.Enabled) {continue}
+
+		selected = (area.ID&selection) != 0
+		if (!selected) {continue}
+		ars = append(ars, SOA+area.Text+EOA)
 	}
-	return areas[id]
+	return strings.Join(ars, AD)
 }
 
-func NewArea(name string, colors... byte) int {
-	var c color
-	if len(colors) == 0 {
-		c = color{255, 255, 255, 0, 0, 0}
-	} else if len(colors) == 3 {
-		c = color{colors[0], colors[1], colors[2], 0, 0, 0}
-	} else  if len(colors) == 6 {
-		c = color{colors[0], colors[1], colors[2], colors[3], colors[4], colors[5]}
+// if you need an io.Writer you can call Flogger.Writer() pre-speficy the
+// selected areas and recieve an FSection, that implements io.Writer
+type Flogger struct {
+	File io.Writer
+	Areas Section
+
+	// formatting:
+	StartOfLine string
+
+	TimeFormat string
+
+	BeforeAreas string
+
+	// handled by Section
+	StartOfArea string
+	AreaDivision string
+	EndOfArea string
+
+	AfterAreas string
+	// content
+	EndOfLine string
+}
+
+const (
+	ansi_CLEAR = "\x1b[0m"
+	ErrNoEnabledAreas = constError("Flogger.Printf no selected areas")
+	ErrNoAreas = constError("Flogger.Printf all selected areas disabled")
+)
+
+func NewLogger(out io.Writer) *Flogger {
+	return &Flogger{
+		File: out,
+		Areas: []Area{},
+		StartOfLine: "[",
+		TimeFormat: "02/01 15:04:05",
+		BeforeAreas: "] ",
+		StartOfArea: "",
+		AreaDivision: ansi_CLEAR+" | ",
+		EndOfArea: ansi_CLEAR,
+		AfterAreas: ": ",
+		EndOfLine: ansi_CLEAR+"\n",
 	}
-
-	a := Area{name, 1<<len(areas), c, true}
-	areas = append(areas, a)
-	return a.id
 }
 
-func (A *Area)disable() {
-	A.enabled = false
+func (Fl *Flogger) NewArea(text string) (ID uint64) {
+	ID = 1<<uint64(len(Fl.Areas))
+	Fl.Areas = append(Fl.Areas, Area{ID, text, true})
+	return
 }
-func (A *Area)enable() {
-	A.enabled = false
+
+func (Fl *Flogger) Printf(areas uint64, format string, stuff ...any) (int, error) {
+	if (areas == 0) {return 0, ErrNoAreas}
+	areasText := Fl.Areas.String(areas, Fl.AreaDivision, Fl.StartOfArea, Fl.EndOfArea)
+	if (len(areasText) == 0) {return 0, ErrNoEnabledAreas}
+	fmttime := time.Now().Format(Fl.TimeFormat)
+	fmtcont := fmt.Sprintf(format, stuff...)
+	return Fl.File.Write( []byte(
+Fl.StartOfLine + fmttime + Fl.BeforeAreas + areasText + Fl.AfterAreas + fmtcont + Fl.EndOfLine,
+	))
 }
-func (col color)ANSI() string {
-	if (col.fr != 0 && col.fb == 0) {
-		var ANSI string
-		if (col.fr == 0) {
-			ANSI+="0"
+
+func (Fl Flogger) Enable(areas uint64) {
+	for i, area := range Fl.Areas {
+		if (area.ID & areas != 0) {
+			Fl.Areas[i].Enabled = true
 		}
-		//ANSI here
 	}
-	return fmt.Sprintf("\x1b[38;2;%d;%d;%d;48;2;%d;%d;%dm", col.fr,col.fg,col.fb, col.br,col.bg,col.bb)
 }
 
-func FLog(selectedAreas int, format string, stuff... any) {
-	var enabled bool
-	var preamble string
-
-	for i:=0;i<len(areas);i++ {
-		if ((1<<i) & selectedAreas != 0) {
-			area:=areas[i]
-			enabled = enabled||area.enabled
-			if (preamble != "") {
-				preamble+=AreaDivision
-			}
-			preamble+=area.color.ANSI()+area.Name+AreaNC.color.ANSI()
+func (Fl Flogger) Disable(areas uint64) {
+	for i, area := range Fl.Areas {
+		if (area.ID & areas != 0) {
+			Fl.Areas[i].Enabled = false
 		}
 	}
+}
 
-	if (!enabled) {return}
-
-	var text string
-	if (format != "") {
-		text = fmt.Sprintf(format, stuff...)
+func (Fl Flogger) Toggle(areas uint64) {
+	for i, area := range Fl.Areas {
+		if (area.ID & areas != 0) {
+			Fl.Areas[i].Enabled = !area.Enabled
+		}
 	}
-	fmttime := time.Now().Format("02/01/06 15:04:05")
-	fmt.Fprintf(os.Stderr, "[%v] %s: %s", fmttime, preamble, text)
 }
 
-//TODO: get new Flog system from pedromanse/timecard
-var FLOG_ERROR int
-var FLOG_INFO int
-func init() {
-	FLOG_ERROR = NewArea("ERROR")
-	FLOG_INFO = NewArea("INFO")
+func (Fl Flogger) Writer(areas uint64) FSection {
+	return FSection{Fl, areas}
 }
+
+// wrapper for io.Writer but with Flogger info
+type FSection struct {
+	FLog Flogger
+	SelectedAreas uint64
+}
+
+// doens't implement Write as documented, since formatting adds more information.
+// If you need to access the original io.Writer, you can use FS.FLog.File
+func (FS FSection) Write(p []byte) (n int, err error) {
+	_, err = FS.FLog.Printf(FS.SelectedAreas, "%s", p)
+	return len(p), err
+}
+
+// default Flogger
+
+var FLog *Flogger = NewLogger(os.Stderr)
+var FLOG_ERROR = FLog.NewArea("\x1b[31m\x1b[5mERROR")
+var FLOG_INFO = FLog.NewArea("INFO")
 
