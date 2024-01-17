@@ -2,10 +2,10 @@ package service
 
 import (
 	. "mysrv/util"
+	verfit "mysrv/verfitting"
 	"time"
 	"fmt"
 	"database/sql"
-	"sync/atomic"
 	"html/template"
 	"github.com/gomarkdown/markdown"
 	"strconv"
@@ -512,7 +512,7 @@ type Community struct {
 	Name string
 	Description string
 	Posts []*Post
-	Subscount atomic.Uint64
+	Subscount verfit.AUint64
 }
 
 type Post struct {
@@ -523,9 +523,9 @@ type Post struct {
 	PostHTML template.HTML // markdown -> html!
 	PostTime time.Time
 	Comments []*Comment
-	CommentCount *atomic.Uint64
-	LikeCount *atomic.Uint64
-	DislikeCount *atomic.Uint64
+	CommentCount *verfit.AUint64
+	LikeCount *verfit.AUint64
+	DislikeCount *verfit.AUint64
 	Reactions *SyncMap[int64, ReactionType]
 	// ReactionCount for specific analytics
 }
@@ -539,9 +539,9 @@ type Comment struct {
 	CommentTime time.Time
 	ParentComment *Comment
 	Children []*Comment
-	ChildrenCount *atomic.Uint64
-	LikeCount *atomic.Uint64
-	DislikeCount *atomic.Uint64
+	ChildrenCount *verfit.AUint64
+	LikeCount *verfit.AUint64
+	DislikeCount *verfit.AUint64
 	Reactions *SyncMap[int64, ReactionType]
 	// ReactionCount for specific analytics
 }
@@ -660,7 +660,7 @@ func createCommunity(creator *Account, name string, description string) (c *Comm
 		commID, creator,
 		name, description,
 		[]*Post{},
-		atomic.Uint64{},
+		verfit.AUint64{},
 	}
 
 	subTo(creator, c)
@@ -740,9 +740,9 @@ func createPost(creator *Account, PostText string, comm *Community) *Post {
 		MDToHTML(PostText),
 		time.Now(),
 		[]*Comment{},
-		&atomic.Uint64{},
-		&atomic.Uint64{},
-		&atomic.Uint64{},
+		&verfit.AUint64{},
+		&verfit.AUint64{},
+		&verfit.AUint64{},
 		&reactions,
 	}
 	IDToPost.Set(PostId, p)
@@ -768,9 +768,9 @@ func _createSoleComment(creator *Account, commentText string, parentPost *Post) 
 		time.Now(),
 		nil,
 		[]*Comment{},
-		&atomic.Uint64{},
-		&atomic.Uint64{},
-		&atomic.Uint64{},
+		&verfit.AUint64{},
+		&verfit.AUint64{},
+		&verfit.AUint64{},
 		NewSyncMap[int64, ReactionType](),
 	}
 	return c
@@ -800,9 +800,9 @@ func _createChildComment(creator *Account, commentText string, parentPost *Post,
 		time.Now(),
 		parentComment,
 		[]*Comment{},
-		&atomic.Uint64{},
-		&atomic.Uint64{},
-		&atomic.Uint64{},
+		&verfit.AUint64{},
+		&verfit.AUint64{},
+		&verfit.AUint64{},
 		&reactions,
 	}
 	parentComment.Children = append(parentComment.Children, c)
@@ -899,7 +899,7 @@ FROM social_community`)
 
 		acc, ok := IDToAccount.Get(creatorID)
 		if (!ok) {return fmt.Errorf("Can't find community creator [%d]", creatorID)}
-		atomicSubC := atomic.Uint64{}
+		atomicSubC := verfit.AUint64{}
 		atomicSubC.Store(subc)
 		c := &Community{
 			communityID, acc,
@@ -939,7 +939,7 @@ FROM
 		if (!ok) {return fmt.Errorf("Can't find post creator [%d]", posterID)}
 		Comm, ok := IDToCommunity.Get(communityID)
 		if (!ok) {return fmt.Errorf("Can't find community [%d]", communityID)}
-		atomicCommentCount := atomic.Uint64{}
+		atomicCommentCount := verfit.AUint64{}
 		atomicCommentCount.Store(commentCount)
 		p := &Post{
 			PostID, Poster, Comm,
@@ -948,8 +948,8 @@ FROM
 			PostTime,
 			[]*Comment{},
 			&atomicCommentCount,
-			&atomic.Uint64{},
-			&atomic.Uint64{},
+			&verfit.AUint64{},
+			&verfit.AUint64{},
 			NewSyncMap[int64, ReactionType](),
 		}
 		IDToPost.Set(PostID, p)
@@ -988,7 +988,7 @@ FROM
 		if (!ok) {return fmt.Errorf("Can't find commenter [%d]", commenterID)}
 		post, ok := IDToPost.Get(PostID)
 		if (!ok) {return fmt.Errorf("Can't find post for comment [%d]", PostID)}
-		atomicChildrenCount := atomic.Uint64{}
+		atomicChildrenCount := verfit.AUint64{}
 		atomicChildrenCount.Store(childrenCount)
 		c := &Comment{
 			commentID, commenter, post,
@@ -998,8 +998,8 @@ FROM
 			nil,
 			[]*Comment{},
 			&atomicChildrenCount,
-			&atomic.Uint64{},
-			&atomic.Uint64{},
+			&verfit.AUint64{},
+			&verfit.AUint64{},
 			NewSyncMap[int64, ReactionType](),
 		}
 		if (parentCommentID != nil) {
