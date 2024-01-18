@@ -10,10 +10,6 @@ import (
 type HttpWriter = http.ResponseWriter
 type HttpReq = *http.Request
 type Plugin = func(w HttpWriter, r HttpReq, info map[string]any) (render bool, addinfo any)
-// TODO: add "terminator" flag to plugin
-// GOTM_mustacc is added as a guard, to relieve the
-// : programmer of the duty to check if the user is logged in
-// : plugins after GOTM_mustacc shoudln't be executed
 type GOTMPlugin struct {
 	Name string
 	Plug Plugin
@@ -21,6 +17,8 @@ type GOTMPlugin struct {
 
 // TODO Config suffix, for generic instanciation of function,
 // allowing better usability than infomap
+
+// TODO .Render for ContentServer to define infomap for a single instance
 
 /*
 
@@ -84,12 +82,12 @@ func TemplatedComponent ( filename string ) ContentRenderer {
 	return templatedComponent{tmpl(filename)}
 }
 
-func InlineComponent ( filename string ) ContentRenderer {
-	return templatedComponent{inlinetmpl(filename)}
+func InlineComponent ( str string ) ContentRenderer {
+	return templatedComponent{inlinetmpl(str)}
 }
 
-func InlineUnsafeComponent ( filename string ) ContentRenderer {
-	return templatedComponent{inlinetmpl_u(filename)}
+func InlineUnsafeComponent ( str string ) ContentRenderer {
+	return templatedComponent{inlinetmpl_u(str)}
 }
 
 // DynamicPage without plugins is just a user function

@@ -1,8 +1,6 @@
 package util
 
 import (
-	"time"
-	"os"
 	"hash/fnv"
 	"sync"
 	"strings"

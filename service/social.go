@@ -26,9 +26,11 @@ func init() {
 	CIDToSubs.Init()
 }
 
-var = InlineComponent(`
-
-`)
+// TODO: could use TemplatedPluggedPage.Render
+// for instances of .Render of this ContentRenderer
+var ErrorPage = TemplatedComponent("html/social/err.gohtml")
+// accepts Tuple[str, str] to linkback
+var ErrorLinkPage = TemplatedComponent("html/social/err-link.gohtml")
 
 var AllEndpoint = LogicPage(
 	"html/social/cards.gohtml",
@@ -92,8 +94,8 @@ var ReactToCommentEndpoint = LogicPage(
 	reactToItemEndpoint,
 )
 
-var CreateCommentEndpoint = TemplatedLogicedPluggedPage(
-	"html/social/comment-error.gohtml", nil,
+var CreateCommentEndpoint = DynamicPluggedPage(
+	nil,
 	[]GOTMPlugin{GOTM_account},
 	createCommentEndpoint,
 )
@@ -150,25 +152,31 @@ func prelude(w HttpWriter, r HttpReq, info map[string]any) (acc *Account, query 
 
 func createCommentEndpoint( w HttpWriter, r HttpReq, info map[string]any) (render bool, addinfo any) {
 	acc, query, ok := prelude(w, r, info)
-	einfo := Tuple[string, string]{"", `/social/posts?postid=`+query.PostID_str}
+
+	// einfo = [errname, linkhref]
+	var einfo = Tuple[error, string]{nil, `/social/posts?postid=`+query.PostID_str}
+
 	if (!ok) {
-		einfo.Left="Invalid Account"
-		return true, einfo
+		einfo.Left = ErrInvalidAccount
+		ErrorLinkPage.Render(w, einfo)
+		return
 	}
+
 	cmnt := IDToComment.GetI(query.CommentID)
 	post, ok := IDToPost.Get(query.PostID)
 	if (!ok) {
-		einfo.Left="Invalid PostID"
+		einfo.Left=ErrCantFindPost
 		einfo.Right="/social/all"
-		return true, einfo
+		ErrorLinkPage.Render(w, einfo)
+		return
 	}
 
 	commentText := RemoveSpace(r.FormValue("commentText"))
 
-	//TODO: better tests on only spaces etc
 	if (commentText == "") {
-		einfo.Left="Comment with no body"
-		return true, einfo
+		einfo.Left=ErrCommentWithNoBody
+		ErrorLinkPage.Render(w, einfo)
+		return
 	}
 
 	createComment(acc, commentText, post, cmnt)
@@ -178,11 +186,21 @@ func createCommentEndpoint( w HttpWriter, r HttpReq, info map[string]any) (rende
 
 func reactToItemEndpoint( w HttpWriter, r HttpReq, info map[string]any) (render bool, addinfo any) {
 	_, query, ok := prelude(w, r, info)
-	if (!ok) {return true, map[string]any{"error":"Invalid Account"}}
+	if (!ok) {
+		ErrorPage.Render(w, ErrInvalidAccount)
+		return
+	}
+
 	IDToItem := info["IDToItem"].(func(int64)(Item, bool))
 
-	item, ok := IDToItem(query.CommentID)
-	if (!ok) {return true, map[string]any{"error":"Invalid PostID"}}
+	var itemid int64 = query.CommentID
+	if (itemid == 0) {itemid = query.PostID}
+	item, ok := IDToItem(itemid)
+
+	if (!ok) {
+		ErrorPage.Render(w, ErrCantFindItem)
+		return
+	}
 
 	var e error
 	if (r.Method == "POST") {
@@ -190,8 +208,9 @@ func reactToItemEndpoint( w HttpWriter, r HttpReq, info map[string]any) (render 
 	} else {
 		e = item.React( query.AccID, 0 )
 	}
+
 	if (e != nil) {
-		return true, map[string]any{"error":e.Error()}
+		ErrorPage.Render(w, e)
 	}
 
 	return true, map[string]any{
@@ -267,10 +286,15 @@ func createpostEndpoint(w HttpWriter, r HttpReq, info map[string]any) (render bo
 
 func postEndpoint(w HttpWriter, r HttpReq, info map[string]any) (render bool, addinfo any) {
 	_, query, ok := prelude(w, r, info)
-	if (!ok) {return true, map[string]any{"error":"Invalid Account"}}
+	if (!ok) {
+		return true, map[string]any{"error":ErrCantFindAccount}
+	}
 	pid := query.PostID
 	P, ok := IDToPost.Get(pid)
-	if (!ok) {return true, map[string]any{"error":"Invalid PostId"}}
+	if (!ok) {
+		ErrorPage.Render(w, DynError{ErrCantFindPost, pid})
+		return
+	}
 	return true, map[string]any{ "post":P  }
 }
 
@@ -1029,10 +1053,13 @@ func _loadreactions() (err error) {
 }
 
 const (
+	ErrInvalidAccount     = ConstError("InvalidAccount")
+	ErrCantFindItem       = ConstError("Can't find item")
 	ErrCantFindPost       = ConstError("Can't find post")
 	ErrCantFindComment    = ConstError("Can't find comment")
 	ErrCantFindAccount    = ConstError("Can't find account")
 	ErrInexistentReaction = ConstError("Inexistent reaction")
+	ErrCommentWithNoBody  = ConstError("Comment with no body")
 )
 
 func loadSQL(db *sql.DB) (err error) {
