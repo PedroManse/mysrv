@@ -1,16 +1,12 @@
 <span class="reactions">
-	{{ if .logic.error }}
-		{{.logic.error}}
-	{{ else }}
-		{{ $userReaction := .logic.reactions.GetI .acc.id }}
-		<span class="reactionCount">
-			<span class="likes"> {{ .logic.likeCount.Load }} </span>
-			<span class="dislikes"> {{ .logic.dislikeCount.Load }} </span>
-		</span>
-		<span class="react">
-			{{ range $i, $info := .allreactions }}
-				{{ $info.HTML $userReaction $.logic.id $.logic.itemtype }}
-			{{ end }}
-		</span>
-	{{ end }}
+	{{ $userReaction := .logic.reactions.GetI .acc.id }}
+	<span class="reactionCount">
+		<span class="likes"> {{ .logic.likeCount.Load }} </span>
+		<span class="dislikes"> {{ .logic.dislikeCount.Load }} </span>
+	</span>
+	<span class="react">
+		{{ range $i, $info := .allreactions }}
+			{{ $info.HTML $userReaction $.logic.id $.logic.itemtype }}
+		{{ end }}
+	</span>
 </span>

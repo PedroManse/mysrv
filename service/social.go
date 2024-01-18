@@ -174,7 +174,7 @@ func createCommentEndpoint( w HttpWriter, r HttpReq, info map[string]any) (rende
 	commentText := RemoveSpace(r.FormValue("commentText"))
 
 	if (commentText == "") {
-		einfo.Left=ErrCommentWithNoBody
+		einfo.Left=ErrItemWithNoBody
 		ErrorLinkPage.Render(w, einfo)
 		return
 	}
@@ -226,7 +226,8 @@ func createcommunityEndpoint(w HttpWriter, r HttpReq, info map[string]any) (rend
 	acc, _, ok := prelude(w, r, info)
 	if (!ok) {
 		w.WriteHeader(http.StatusBadRequest)
-		return true, map[string]any{"error":"Invalid Account"}
+		ErrorLinkPage.Render(w, Tuple[error, string]{ErrInvalidAccount, "/social/community/create"})
+		return
 	}
 
 	if (r.Method == "GET") {
@@ -235,22 +236,30 @@ func createcommunityEndpoint(w HttpWriter, r HttpReq, info map[string]any) (rend
 		name := RemoveSpace(r.FormValue("comm-name"))
 		desc := RemoveSpace(r.FormValue("comm-desc"))
 		a, exists := NameToCommunity.Get(name)
-		fmt.Println(name, desc, a, exists)
 
 		if (exists) {
 			w.WriteHeader(http.StatusBadRequest)
-			return true, map[string]any{"error":"Community with this name already exists"}
+			ErrorLinkPage.Render(w, Tuple[error, string]{
+				ErrCommunityAlreadyExists, "/social/community/create",
+			})
+			return
 		}
 
 		if (len(name) == 0 || len(desc) == 0) {
 			w.WriteHeader(http.StatusBadRequest)
-			return true, map[string]any{"error":"Invalid Community Name or Description"}
+			ErrorLinkPage.Render(w, Tuple[error, string]{
+				ErrItemWithNoBody, "/social/community/create",
+			})
+			return
 		}
 
 		c, e := createCommunity(acc, name, desc)
 		if (e != nil) {
 			w.WriteHeader(http.StatusBadRequest)
-			return true, map[string]any{"error":e.Error()}
+			ErrorLinkPage.Render(w, Tuple[error, string]{
+				e, "/social/community/create",
+			})
+			return
 		}
 
 		http.Redirect(w, r,
@@ -1059,7 +1068,8 @@ const (
 	ErrCantFindComment    = ConstError("Can't find comment")
 	ErrCantFindAccount    = ConstError("Can't find account")
 	ErrInexistentReaction = ConstError("Inexistent reaction")
-	ErrCommentWithNoBody  = ConstError("Comment with no body")
+	ErrCommunityAlreadyExists = ConstError("Community with this name already exists")
+	ErrItemWithNoBody  = ConstError("Can't create an item with no body")
 )
 
 func loadSQL(db *sql.DB) (err error) {
