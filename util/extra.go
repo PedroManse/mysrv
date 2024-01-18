@@ -1,6 +1,8 @@
 package util
 
 import (
+	"time"
+	"os"
 	"hash/fnv"
 	"sync"
 	"strings"
@@ -187,7 +189,6 @@ type IntType  interface{SIntType | UIntType}
 type FloatType  interface{float32 | float64}
 type NumberType  interface{IntType | FloatType}
 
-
 func Min[V NumberType](a, b V) (V) {
 	if (a < b) {return a}
 	return b
@@ -197,36 +198,6 @@ func Max[V NumberType](a, b V) (V) {
 	if (a > b) {return a}
 	return b
 }
-
-//type Monad[A any] struct { V *A }
-//
-//func NewMonad[A any]() (Monad[A]) {
-//	return Monad[A]{new(A)}
-//}
-//
-//func (M *Monad[A]) New() {
-//	M.V = new(A);
-//}
-//
-//func (M *Monad[A]) Set(v A) {
-//	M.V = &v
-//}
-//
-//func (M Monad[A]) Apply(fnc func(A)A) {
-//	if (M.V != nil) {
-//		*M.V = fnc(*M.V)
-//	}
-//}
-//
-//type MArray[A any] []Monad[A]
-//
-//func (M MArray[A]) Apply(fnc func(A)A) {
-//	for i := range M {
-//		if (M[i].V != nil) {
-//			*M[i].V = fnc(*M[i].V)
-//		}
-//	}
-//}
 
 // implements io.Writer
 type WriteBuffer struct {
@@ -278,4 +249,56 @@ func (err DynError) Is(target error) bool {
 	ts := target.Error()
 	return ts == err.Format.Error()
 }
+
+//func MakeCacheMap[K comparable, V any](mp map[K]V, copies int) (cm CacheMap[K, V]) {
+//	cm = CacheMap[K, V]{
+//		mp, sync.Mutex{}, copies,
+//		make([]map[K]V, copies),
+//		make([]sync.Mutex, copies),
+//	}
+//	for i:=0;i<cm.copies;i++ {
+//		cm.cps[i] = make(map[K]V)
+//	}
+//	for k,v := range mp {
+//		for i:=0;i<cm.copies;i++ {
+//			cm.cps[i][k]=v
+//		}
+//	}
+//	return
+//}
+//
+//type CacheMap[Key comparable, Value any] struct {
+//	Origin map[Key]Value
+//	mutex sync.Mutex
+//	copies int
+//	cps []map[Key]Value
+//	lks []sync.Mutex
+//}
+//
+//func (CM *CacheMap[K, V]) Write(key K, value V) () {
+//	CM.mutex.Lock()
+//	CM.Origin[key]=value
+//	CM.mutex.Unlock()
+//}
+//
+//// possibly implement cond_t with event argument,
+//// to enable the reader to jump to the open map
+//func (CM *CacheMap[K, V]) Read(key K, rid int) (V, bool) {
+//	fmt.Printf("[%d] Reading for %v\n", rid, key)
+//	j := 0
+//	for {
+//		fmt.Printf("[%d] %dth pass\n", rid, j)
+//		j++
+//		for i:=0;i<CM.copies;i++ {
+//			owner := CM.lks[i].TryLock()
+//			if (!owner) {continue}
+//			fmt.Printf("[%d] own %d\n", rid, i)
+//			time.Sleep(50000)
+//			v,ok := CM.cps[i][key]
+//			CM.lks[i].Unlock()
+//			fmt.Printf("[%d] sell %d\n", rid, i)
+//			return v, ok
+//		}
+//	}
+//}
 
