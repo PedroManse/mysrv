@@ -14,68 +14,21 @@ import (
 	"net/http"
 )
 
-var socialSQLTables = `
+func init() {
+	SQLInitScript( "social#create tables", socialSQLTables )
+	SQLInitFunc( "social#load", loadSQL )
 
-CREATE TABLE IF NOT EXISTS social_community (
-	communityID INTEGER PRIMARY KEY AUTOINCREMENT,
-	creatorID INTEGER NOT NULL,
-	name TEXT NOT NULL,
-	description TEXT NOT NULL,
-	subcount INGETER NOT NULL DEFAULT 0
-);
+	IDToPost.Init()
+	IDToComment.Init()
+	IDToCommunity.Init()
+	NameToCommunity.Init()
+	UIDToSubs.Init()
+	CIDToSubs.Init()
+}
 
-CREATE TABLE IF NOT EXISTS social_sub (
-	subberID INTEGER NOT NULL,
-	communityID INTEGER NOT NULL,
-	UNIQUE(subberID, communityID),
-	FOREIGN KEY(subberID) REFERENCES accounts(id),
-	FOREIGN KEY(communityID) REFERENCES social_community(communityID)
-);
+var = InlineComponent(`
 
-CREATE TABLE IF NOT EXISTS social_post (
-	postID INTEGER PRIMARY KEY AUTOINCREMENT,
-	communityID INTEGER NOT NULL,
-	posterID INTEGER NOT NULL,
-	postText TEXT NOT NULL,
-	postTime DATETIME NOT NULL,
-	commentCount INTEGER NOT NULL DEFAULT 0,
-	FOREIGN KEY(posterID) REFERENCES accounts(id),
-	FOREIGN KEY(communityID) REFERENCES social_community(communityID)
-);
-
-CREATE TABLE IF NOT EXISTS social_comment (
-	commentID INTEGER PRIMARY KEY AUTOINCREMENT,
-	commenterID INTEGER NOT NULL,
-	commentText TEXT NOT NULL,
-	commentTime DATETIME NOT NULL,
-	postID UNSIGNED INTEGER NOT NULL,
-	parentCommentID INTEGER,
-	childrenCount INTEGER NOT NULL DEFAULT 0,
-	FOREIGN KEY(parentCommentID) REFERENCES social_comment(commentID),
-	FOREIGN KEY(commenterID) REFERENCES accounts(id),
-	FOREIGN KEY(postID) REFERENCES social_post(postID)
-);
-
-CREATE TABLE IF NOT EXISTS social_post_reaction (
-	postID INTEGER NOT NULL,
-	accID INTEGER NOT NULL,
-	action INTEGER NOT NULL,
-	CHECK( action > 0),
-	UNIQUE(postID, accID),
-	FOREIGN KEY(accID) REFERENCES accounts(id),
-	FOREIGN KEY(postID) REFERENCES social_post(commentID)
-);
-
-CREATE TABLE IF NOT EXISTS social_comment_reaction (
-	commentID INTEGER NOT NULL,
-	accID INTEGER NOT NULL,
-	action INTEGER NOT NULL,
-	CHECK( action > 0),
-	UNIQUE(commentID, accID),
-	FOREIGN KEY(accID) REFERENCES accounts(id),
-	FOREIGN KEY(commentID) REFERENCES social_comment(commentID)
-);
-`
+`)
 
 var AllEndpoint = LogicPage(
 	"html/social/cards.gohtml",
@@ -111,30 +64,32 @@ var CreateCommunityEndpoint = LogicPage(
 var CreatePostPageEndpoint = LogicPage(
 	"html/social/createpost.gohtml",
 	map[string]any{
-		"allcommunities":&IDToCommunity,
+		"allcommunities":IDToCommunity,
 	},
 	[]GOTMPlugin{ GOTM_account, GOTM_mustacc },
 	createpostEndpoint,
 )
 
 var ReactToPostEndpoint = LogicPage(
-	"html/social/components/post-reactions.gohtml",
+	"html/social/components/reactions.gohtml",
 	map[string]any{
 		"allreactions":ReactionsInfo,
 		"allsorts":SortNames,
+		"IDToItem":ItemGetter[*Post](IDToPost),
 	},
 	[]GOTMPlugin{ GOTM_account, GOTM_mustacc },
-	reactToPostEndpoint,
+	reactToItemEndpoint,
 )
 
 var ReactToCommentEndpoint = LogicPage(
-	"html/social/components/comment-reactions.gohtml",
+	"html/social/components/reactions.gohtml",
 	map[string]any{
 		"allreactions":ReactionsInfo,
 		"allsorts":SortNames,
+		"IDToItem":ItemGetter[*Comment](IDToComment),
 	},
 	[]GOTMPlugin{ GOTM_account, GOTM_mustacc },
-	reactToCommentEndpoint,
+	reactToItemEndpoint,
 )
 
 var CreateCommentEndpoint = TemplatedLogicedPluggedPage(
@@ -181,12 +136,12 @@ func prelude(w HttpWriter, r HttpReq, info map[string]any) (acc *Account, query 
 	if (!ok) {return}
 	query.CommunityID, _  = strconv.ParseInt(r.FormValue("communityid"), 10, 64)
 	query.PostID, _       = strconv.ParseInt(r.FormValue("postid"), 10, 64)
-	query.PostID_str      = r.FormValue("postid")
+	query.PostID_str      = RemoveSpace(r.FormValue("postid"))
 	query.CommentID, _    = strconv.ParseInt(r.FormValue("commentid"), 10, 64)
 	query.Reaction, _     = strconv.ParseUint(r.FormValue("reaction"), 10, 64)
 	query.PostCount, _    = strconv.ParseInt(r.FormValue("postcount"), 10, 64)
 	query.UseSort         = SortNameToID.GetI(r.FormValue("sortmethod"))
-	query.UseSort_str     = r.FormValue("sortmethod")
+	query.UseSort_str     = RemoveSpace(r.FormValue("sortmethod"))
 	if (query.PostCount == 0) {
 		query.PostCount = 10
 	}
@@ -208,7 +163,7 @@ func createCommentEndpoint( w HttpWriter, r HttpReq, info map[string]any) (rende
 		return true, einfo
 	}
 
-	commentText := r.FormValue("commentText")
+	commentText := RemoveSpace(r.FormValue("commentText"))
 
 	//TODO: better tests on only spaces etc
 	if (commentText == "") {
@@ -217,47 +172,44 @@ func createCommentEndpoint( w HttpWriter, r HttpReq, info map[string]any) (rende
 	}
 
 	createComment(acc, commentText, post, cmnt)
-	http.Redirect(w, r, fmt.Sprintf("/social/posts?postid=%d", query.PostID), http.StatusFound)
+	http.Redirect(w, r, fmt.Sprintf("/social/posts?postid=%d", query.PostID), http.StatusSeeOther)
 	return false, nil
 }
 
-func reactToCommentEndpoint( w HttpWriter, r HttpReq, info map[string]any) (render bool, addinfo any) {
+func reactToItemEndpoint( w HttpWriter, r HttpReq, info map[string]any) (render bool, addinfo any) {
 	_, query, ok := prelude(w, r, info)
 	if (!ok) {return true, map[string]any{"error":"Invalid Account"}}
-	comment, ok := IDToComment.Get(query.CommentID)
-	if (!ok) {return true, map[string]any{"error":"Invalid PostID"}}
-	if (r.Method == "POST") {
-		comment.React( query.AccID, query.Reaction )
-	} else {
-		//TODO actually delete reaction
-		comment.React( query.AccID, 0 )
-	}
-	return true, map[string]any{
-		"comment":comment,
-		"query":query,
-	}
-}
+	IDToItem := info["IDToItem"].(func(int64)(Item, bool))
 
-func reactToPostEndpoint( w HttpWriter, r HttpReq, info map[string]any) (render bool, addinfo any) {
-	_, query, ok := prelude(w, r, info)
-	if (!ok) {return true, map[string]any{"error":"Invalid Account"}}
-	post, ok := IDToPost.Get(query.PostID)
+	item, ok := IDToItem(query.CommentID)
 	if (!ok) {return true, map[string]any{"error":"Invalid PostID"}}
+
+	var e error
 	if (r.Method == "POST") {
-		post.React( query.AccID, query.Reaction )
+		e = item.React( query.AccID, query.Reaction )
 	} else {
-		//TODO actually delete reaction
-		post.React( query.AccID, 0 )
+		e = item.React( query.AccID, 0 )
 	}
+	if (e != nil) {
+		return true, map[string]any{"error":e.Error()}
+	}
+
 	return true, map[string]any{
-		"post":post,
-		"query":query,
+		"reactions":item.GetReactions(),
+		"likeCount":item.GetLikeCount(),
+		"dislikeCount":item.GetDislikeCount(),
+		"id":item.GetID(),
+		"itemtype":item.GetItemType(),
 	}
 }
 
 func createcommunityEndpoint(w HttpWriter, r HttpReq, info map[string]any) (render bool, addinfo any) {
 	acc, _, ok := prelude(w, r, info)
-	if (!ok) {return true, map[string]any{"error":"Invalid Account"}}
+	if (!ok) {
+		w.WriteHeader(http.StatusBadRequest)
+		return true, map[string]any{"error":"Invalid Account"}
+	}
+
 	if (r.Method == "GET") {
 		return true, nil
 	} else if (r.Method=="POST") {
@@ -265,13 +217,26 @@ func createcommunityEndpoint(w HttpWriter, r HttpReq, info map[string]any) (rend
 		desc := RemoveSpace(r.FormValue("comm-desc"))
 		a, exists := NameToCommunity.Get(name)
 		fmt.Println(name, desc, a, exists)
+
 		if (exists) {
+			w.WriteHeader(http.StatusBadRequest)
 			return true, map[string]any{"error":"Community with this name already exists"}
-		} else if (len(name) == 0 || len(desc) == 0) {
-			return true, map[string]any{"error":"Invalid Community Name or Description"}
-		} else {
-			createCommunity(acc, name, desc)
 		}
+
+		if (len(name) == 0 || len(desc) == 0) {
+			w.WriteHeader(http.StatusBadRequest)
+			return true, map[string]any{"error":"Invalid Community Name or Description"}
+		}
+
+		c, e := createCommunity(acc, name, desc)
+		if (e != nil) {
+			w.WriteHeader(http.StatusBadRequest)
+			return true, map[string]any{"error":e.Error()}
+		}
+
+		http.Redirect(w, r,
+		fmt.Sprintf("/social/community?communityid=%d", c.CommunityID),
+		http.StatusSeeOther)
 	}
 	w.WriteHeader(http.StatusBadRequest)
 	return false, nil
@@ -284,12 +249,15 @@ func createpostEndpoint(w HttpWriter, r HttpReq, info map[string]any) (render bo
 		return true, map[string]any{}
 	} else if (r.Method == "POST") {
 		cid := query.CommunityID
-		txt := r.FormValue("postText")
+		txt := RemoveSpace(r.FormValue("postText"))
 		comm, ok := IDToCommunity.Get(cid)
 		if (!ok) {return true, map[string]any{"error":"Invalid Community"}}
 
-		pid := createPost(acc, txt, comm).PostID
-		http.Redirect(w, r, fmt.Sprintf("/social/posts?postid=%d", pid), http.StatusFound)
+		post, e := createPost(acc, txt, comm)
+		if (e != nil) {
+			return true, map[string]any{"error":e.Error()}
+		}
+		http.Redirect(w, r, fmt.Sprintf("/social/posts?postid=%d", post.PostID), http.StatusSeeOther)
 		return false, nil
 	} else {
 		w.WriteHeader(http.StatusBadRequest)
@@ -430,31 +398,31 @@ type ReactionInfo struct {
 func HTMLCommentReactions(selected uint64, commentid int64) (h template.HTML) {
 	hm := ""
 	for _, rct := range ReactionsInfo {
-		hm+=rct.HTMLstrComment(selected, commentid)
+		hm+=rct.HTMLstr(selected, commentid, "comment")
 	}
 	return template.HTML(hm)
 }
 
-func (R ReactionInfo) HTML(selected uint64, postid int64) (template.HTML) {
-	return template.HTML(R.HTMLstr(selected, postid))
+func (R ReactionInfo) HTML(selected uint64, postid int64, itemtype string) (template.HTML) {
+	return template.HTML(R.HTMLstr(selected, postid, itemtype))
 }
 
-func (R ReactionInfo) HTMLComment(selected uint64, commentid int64) (template.HTML) {
-	return template.HTML(R.HTMLstrComment(selected, commentid))
-}
+//func (R ReactionInfo) HTMLComment(selected uint64, commentid int64) (template.HTML) {
+//	return template.HTML(R.HTMLstrComment(selected, commentid))
+//}
 
 var ReactionHTML = InlineUnsafeComponent(`
 	<button
 		title="{{ .R.Name }}" style="{{ .R.AltStyle }}" class="reaction {{ .class }}"
-		{{ .action }}="/social/posts/react?reaction={{ .R.ID }}&postid={{ .postid }}"
-		hx-target="#post-{{ .postid }} > span.reactions"
+		{{ .action }}="/social/{{.type}}s/react?reaction={{ .R.ID }}&{{.type}}id={{ .id }}"
+		hx-target="#{{.type}}-{{ .id }} > span.reactions"
 		hx-swap="outerHTML"
 	>
 		<img src="{{.R.Img}}" alt="{{.R.Alt}}">
 	</button>
 `)
 
-func (R ReactionInfo) HTMLstr(selected uint64, postid int64) (string) {
+func (R ReactionInfo) HTMLstr(selected uint64, postid int64, itemtype string) (string) {
 	if (R.ID == 0) {return ""}
 
 	class:="notSelected"
@@ -466,35 +434,9 @@ func (R ReactionInfo) HTMLstr(selected uint64, postid int64) (string) {
 	return ReactionHTML.RenderString(map[string]any{
 		"R":R,
 		"class":class,
-		"postid":postid,
+		"id":postid,
 		"action":action,
-	})
-}
-
-var ReactionHTMLComment = InlineUnsafeComponent(`
-	<button
-		title="{{ .R.Name }}" style="{{ .R.AltStyle }}" class="reaction {{ .class }}"
-		{{ .action }}="/social/comments/react?reaction={{ .R.ID }}&commentid={{ .commentid }}"
-		hx-target="#comment-{{ .commentid }} > span.reactions"
-		hx-swap="outerHTML"
-	>
-		<img src="{{.R.Img}}" alt="{{.R.Alt}}">
-	</button>
-`)
-
-func (R ReactionInfo) HTMLstrComment(selected uint64, commentid int64) (string) {
-	if (R.ID == 0) {return ""}
-	class:="notSelected"
-	action:="hx-post"
-	if selected == R.ID {
-		class="selected"
-		action="hx-delete"
-	}
-	return ReactionHTMLComment.RenderString(map[string]any{
-		"R":R,
-		"class":class,
-		"commentid":commentid,
-		"action":action,
+		"type":itemtype,
 	})
 }
 
@@ -582,12 +524,12 @@ func (C Comment) HTMLR(viewer int64, depth int) template.HTML {
 	}))
 }
 
-// maps
+// maps,
 var (
-	IDToPost SyncMap[int64, *Post]
-	IDToComment SyncMap[int64, *Comment]
-	IDToCommunity SyncMap[int64, *Community]
-	NameToCommunity SyncMap[string, *Community]
+	IDToPost         = new(SyncMap[int64, *Post])
+	IDToComment      = new(SyncMap[int64, *Comment])
+	IDToCommunity    = new(SyncMap[int64, *Community])
+	NameToCommunity  = new(SyncMap[string, *Community])
 
 	// user ID -> sub list
 	UIDToSubs SyncMap[*Account, []*Community]
@@ -595,92 +537,65 @@ var (
 	CIDToSubs SyncMap[*Community, []*Account]
 )
 
-func init() {
-	SQLInitScript( "social#create tables", socialSQLTables )
-	SQLInitFunc( "social#load", loadSQL )
-
-	IDToPost.Init()
-	IDToComment.Init()
-	IDToCommunity.Init()
-	NameToCommunity.Init()
-	UIDToSubs.Init()
-	CIDToSubs.Init()
-	//CommentToPost.Init()
+func UpdateReactCount(I Item, accID int64, reaction ReactionType) error {
+	if (reaction >= ReactionLimit) {
+		return DynError{ErrInexistentReaction, reaction}
+	}
+	oldr, change := I.GetReactions().Get(accID)
+	if (change) {
+		if (ReactionsInfo[oldr].MeansHappy) {
+			I.GetLikeCount().Add(^uint64(0))
+		} else {
+			I.GetDislikeCount().Add(^uint64(0))
+		}
+	}
+	if (reaction == 0) {
+		I.GetReactions().Unset(accID)
+	} else {
+		I.GetReactions().Set(accID, reaction)
+		if (ReactionsInfo[reaction].MeansHappy) {
+			I.GetLikeCount().Add(1)
+		} else {
+			I.GetDislikeCount().Add(1)
+		}
+	}
+	return nil
 }
 
-func ddprt[A any](a *A) {
-	fmt.Printf("\n[%p] %#+v\n", a, *a)
-}
+func (C *Comment) React(accID int64, reaction ReactionType) (e error) {
+	e = UpdateReactCount(C, accID, reaction)
+	if (e != nil) {return e}
 
-func dprt[A any](a *A) {
-	fmt.Printf("\n[%p] %T %+v\n", a, *a, *a)
-}
-
-func (C *Comment) React(accID int64, reaction ReactionType) {
-	_, e := SQLDo("service/social.(*Comment).React", `
+	_, e = SQLDo("service/social.(*Comment).React", `
 	INSERT OR REPLACE INTO social_comment_reaction
 		(commentID, accID, action)
 	VALUES
 		(?, ?, ?);`,
 	C.CommentID, accID, reaction)
-	if (e != nil) {panic(e)}
-	oldr, change := C.Reactions.Get(accID)
-	if (change) {
-		if (ReactionsInfo[oldr].MeansHappy) {
-			C.LikeCount.Add(^uint64(0))
-		} else {
-			C.DislikeCount.Add(^uint64(0))
-		}
-	}
-	if (reaction == 0) {
-		C.Reactions.Unset(accID)
-	} else {
-		C.Reactions.Set(accID, reaction)
-		if (ReactionsInfo[reaction].MeansHappy) {
-			C.LikeCount.Add(1)
-		} else {
-			C.DislikeCount.Add(1)
-		}
-	}
+	return e
 }
 
-func (P *Post) React(accID int64, reaction ReactionType) {
-	_, e := SQLDo("service/social.(*Post).React", `
+func (P *Post) React(accID int64, reaction ReactionType) (e error) {
+	e = UpdateReactCount(P, accID, reaction)
+	if (e != nil) { return e }
+	_, e = SQLDo("service/social.(*Post).React", `
 	INSERT OR REPLACE INTO social_post_reaction
 		(postID, accID, action)
 	VALUES
 		(?, ?, ?);`,
 	P.PostID, accID, reaction)
-	if (e != nil) {
-		fmt.Println(e)
-		panic(e)
-	}
-	oldr, change := P.Reactions.Get(accID)
-	if (change) {
-		if (ReactionsInfo[oldr].MeansHappy) {
-			P.LikeCount.Add(^uint64(0))
-		} else {
-			P.DislikeCount.Add(^uint64(0))
-		}
-	}
-	if (reaction == 0) {
-		P.Reactions.Unset(accID)
-	} else {
-		P.Reactions.Set(accID, reaction)
-		if (ReactionsInfo[reaction].MeansHappy) {
-			P.LikeCount.Add(1)
-		} else {
-			P.DislikeCount.Add(1)
-		}
-	}
+	return e
 }
 
-func createCommunity(creator *Account, name string, description string) (c *Community) {
+func createCommunity(creator *Account, name string, description string) (c *Community, e error) {
 	r, e := SQLDo("service/social.createCommunity", `
 	INSERT INTO social_community (creatorID, name, description)
 	VALUES (?, ?, ?); `, creator.ID, name, description)
 
-	if (e != nil) {panic(e)}
+	if (e != nil) {
+		return nil, e
+	}
+
 	commID, _ := r.LastInsertId()
 	c = &Community{
 		commID, creator,
@@ -689,14 +604,15 @@ func createCommunity(creator *Account, name string, description string) (c *Comm
 		verfit.AUint64{},
 	}
 
-	subTo(creator, c)
+	e = subTo(creator, c)
+	if (e != nil) {return nil, e}
 	IDToCommunity.Set(commID, c)
 	NameToCommunity.Set(name, c)
 
 	return
 }
 
-func _loadsubTo(subber *Account, comm *Community) {
+func UpdateSubList(subber *Account, comm *Community) {
 	csublist, ok := CIDToSubs.Get(comm)
 	if (!ok) {
 		csublist = []*Account{subber}
@@ -714,16 +630,17 @@ func _loadsubTo(subber *Account, comm *Community) {
 	UIDToSubs.Set(subber, usublist)
 }
 
-func subTo(subber *Account, comm *Community) {
-	_, e := SQLDo("service/social.createCommunity#setCreatorAsSub", `
+func subTo(subber *Account, comm *Community) (e error) {
+	_, e = SQLDo("service/social.createCommunity#setCreatorAsSub", `
 	INSERT INTO social_sub (subberID, communityID)
 	VALUES (?, ?);
 
 	UPDATE social_community SET subcount=subcount+1 WHERE communityID=?;`,
 	subber.ID, comm.CommunityID, comm.CommunityID)
 
-	if (e != nil) {panic(e)}
-	_loadsubTo(subber, comm)
+	if (e != nil) {return}
+	UpdateSubList(subber, comm)
+	return
 }
 
 func createComment(creator *Account, commentText string, parentPost *Post, parentComment *Comment) (c *Comment) {
@@ -752,12 +669,12 @@ func createComment(creator *Account, commentText string, parentPost *Post, paren
 // posterID INTEGER NOT NULL,
 // postText TEXT NOT NULL,
 // postTime DATETIME NOT NULL,
-func createPost(creator *Account, PostText string, comm *Community) *Post {
+func createPost(creator *Account, PostText string, comm *Community) (*Post, error) {
 	r, e := SQLDo("service/social.createPost", `
 	INSERT INTO social_post
 	(posterID, communityID, postText, postTime)
 	VALUES (?, ?, ?, CURRENT_TIMESTAMP);`, creator.ID, comm.CommunityID, PostText)
-	if (e != nil) {panic(e)}
+	if (e != nil) {return nil, e}
 	PostId, _ := r.LastInsertId()
 	var reactions SyncMap[int64, ReactionType]
 	reactions.Init()
@@ -774,7 +691,7 @@ func createPost(creator *Account, PostText string, comm *Community) *Post {
 	}
 	IDToPost.Set(PostId, p)
 	comm.Posts = append(comm.Posts, p)
-	return p
+	return p, nil
 }
 
 func _createSoleComment(creator *Account, commentText string, parentPost *Post) *Comment {
@@ -836,79 +753,62 @@ func _createChildComment(creator *Account, commentText string, parentPost *Post,
 	return c
 }
 
-func _loadsubs(db *sql.DB) (err error) {
-	rows, err := SQLGet("service/social.loadSQL#load subs", `
-	SELECT communityID, COUNT() FROM social_sub GROUP BY communityID;
-	`)
-	if (err != nil) {return err}
-	defer rows.Close()
-	for rows.Next() {
-		var commID int64
-		var subCount uint64
-		err = rows.Scan(&commID, &subCount)
-		if (err != nil) {return err}
-		comm, ok := IDToCommunity.Get(commID)
-		if (!ok) {return fmt.Errorf("Can't find community [%d]", commID)}
-		comm.Subscount.Store(subCount)
+// instance getter closure so that struct->instance conversion happens after
+// getting the item, since, to convert the map, it would have to be coppied
+// TL;DR it's faster to convert after .Get
+func ItemGetter[I Item](SM *SyncMap[int64, I]) (func(int64) (Item, bool)) {
+	return func(id int64) (item Item, exists bool) {
+		item, exists = SM.Get(id)
+		return item, exists
 	}
-	return
 }
 
-func _loadreactions(db *sql.DB) (err error) {
-	rows, err := SQLGet("service/social.loadSQL#load reactions for posts", `
-	SELECT accID, postID, action FROM social_post_reaction;
-	`)
-	if (err != nil) {return err}
-	defer rows.Close()
-	var accID, PostID int64
-	var reaction ReactionType
-
-	for rows.Next() {
-		err = rows.Scan(&accID, &PostID, &reaction)
-		if (err != nil) {return err}
-		post, ok := IDToPost.Get(PostID)
-		if (!ok) {return fmt.Errorf("Can't find post [%d]", PostID)}
-		ok = IDToAccount.Has(accID)
-		if (!ok) {return fmt.Errorf("Can't find account [%d]", accID)}
-		if (reaction >= ReactionLimit) {
-			return fmt.Errorf("Inexistent Reaction [%d]", reaction)
-		}
-		post.Reactions.Set(accID, reaction)
-		if (ReactionsInfo[reaction].MeansHappy) {
-			post.LikeCount.Add(1)
-		} else {
-			post.DislikeCount.Add(1)
-		}
-	}
-
-	rows, err = SQLGet("service/social.loadSQL#load reactions for comments", `
-	SELECT accID, commentID, action FROM social_comment_reaction;
-	`)
-	if (err != nil) {return err}
-	defer rows.Close()
-	var commentID int64
-
-	for rows.Next() {
-		err = rows.Scan(&accID, &commentID, &reaction)
-		if (err != nil) {return err}
-		comment, ok := IDToComment.Get(commentID)
-		if (!ok) {return fmt.Errorf("Can't find comment [%d]", commentID)}
-		ok = IDToAccount.Has(accID)
-		if (!ok) {return fmt.Errorf("Can't find account [%d]", accID)}
-		if (reaction >= ReactionLimit) {
-			return fmt.Errorf("Inexistent Reaction [%d]", reaction)
-		}
-		comment.Reactions.Set(accID, reaction)
-		if (ReactionsInfo[reaction].MeansHappy) {
-			comment.LikeCount.Add(1)
-		} else {
-			comment.DislikeCount.Add(1)
-		}
-	}
-	return
+type Item interface {
+	GetItemType() string // "post" or "comment"
+	GetID() int64
+	GetPoster() *Account
+	GetCommunity() *Community
+	GetHTML() template.HTML
+	GetText() string
+	GetTime() time.Time
+	GetChildCommentCount() *verfit.AUint64
+	GetLikeCount() *verfit.AUint64
+	GetDislikeCount() *verfit.AUint64
+	GetReactions() *SyncMap[int64, ReactionType] // accID -> ReactionType
+	React(accId int64, reaction ReactionType) error
+	// V TODO implement this V
+	GetReactionCount() *SyncMap[ReactionType, int64] // ReactionType -> Reaction Count
 }
 
-func _loadcomm(db *sql.DB) (err error) {
+func (P Post) GetItemType() string { return "post" }
+func (P Post) GetID() int64 { return P.PostID }
+func (P Post) GetPoster() *Account { return P.Poster }
+func (P Post) GetCommunity() *Community { return P.Community }
+func (P Post) GetHTML() template.HTML { return P.PostHTML }
+func (P Post) GetText() string { return P.PostText }
+func (P Post) GetTime() time.Time { return P.PostTime }
+func (P Post) GetChildCommentCount() *verfit.AUint64 { return P.CommentCount }
+func (P Post) GetLikeCount() *verfit.AUint64 { return P.LikeCount }
+func (P Post) GetDislikeCount() *verfit.AUint64 { return P.DislikeCount }
+func (P Post) GetReactions() *SyncMap[int64, ReactionType] { return P.Reactions }
+func (P Post) GetReactionCount() *SyncMap[ReactionType, int64] { return nil }
+
+func (C Comment) GetItemType() string { return "comment" }
+func (C Comment) GetID() int64 { return C.CommentID }
+func (C Comment) GetPoster() *Account { return C.Commenter }
+func (C Comment) GetCommunity() *Community { return C.Post.Community }
+func (C Comment) GetHTML() template.HTML { return C.CommentHTML }
+func (C Comment) GetText() string { return C.CommentText }
+func (C Comment) GetTime() time.Time { return C.CommentTime }
+func (C Comment) GetChildCommentCount() *verfit.AUint64 { return C.ChildrenCount }
+func (C Comment) GetLikeCount() *verfit.AUint64 { return C.LikeCount }
+func (C Comment) GetDislikeCount() *verfit.AUint64 { return C.DislikeCount }
+func (C Comment) GetReactions() *SyncMap[int64, ReactionType] { return C.Reactions }
+func (C Comment) GetReactionCount() *SyncMap[ReactionType, int64] { return nil }
+
+type ParentChild = Tuple[int64, int64]
+
+func _loadcomm() (err error) {
 	rows, err := SQLGet("service/social.loadSQL#load communities", `
 SELECT communityID, creatorID, name, description,
 	(SELECT COUNT(subberID)
@@ -935,14 +835,14 @@ FROM social_community`)
 			atomicSubC,
 		}
 
-		_loadsubTo(acc, c)
+		UpdateSubList(acc, c)
 		IDToCommunity.Set(communityID, c)
 		NameToCommunity.Set(name, c)
 	}
 	return
 }
 
-func _loadposts(db *sql.DB) (err error) {
+func _loadposts() (err error) {
 	rows, err := SQLGet("service/social.loadSQL#load posts", `
 SELECT
 	postID, communityID, posterID, postText, postTime, commentCount
@@ -986,8 +886,7 @@ FROM
 	return
 }
 
-type ParentChild = Tuple[int64, int64]
-func _loadcomments(db *sql.DB) (err error) {
+func _loadcomments() (err error) {
 	rows, err := SQLGet("service/social.loadSQL#load comments", `
 SELECT
 	commentID, commenterID, postID, parentCommentID,
@@ -1011,7 +910,7 @@ FROM
 			&commentTime,
 			&childrenCount,
 		)
-		if (e != nil) {panic(e)}
+		if (e != nil) {return e}
 		commenter, ok := IDToAccount.Get(commenterID)
 		if (!ok) {return fmt.Errorf("Can't find commenter [%d]", commenterID)}
 		post, ok := IDToPost.Get(PostID)
@@ -1050,17 +949,171 @@ FROM
 	return
 }
 
-func loadSQL(db *sql.DB) (err error) {
-	err = _loadcomm(db)
-	if (err != nil) {return}
-	err = _loadposts(db)
-	if (err != nil) {return}
-	err = _loadcomments(db)
-	if (err != nil) {return}
-	err = _loadsubs(db)
-	if (err != nil) {return}
-	err = _loadreactions(db)
-	if (err != nil) {return}
+func _loadsubs() (err error) {
+	rows, err := SQLGet("service/social.loadSQL#load subs", `
+	SELECT communityID, COUNT() FROM social_sub GROUP BY communityID;
+	`)
+	if (err != nil) {return err}
+	defer rows.Close()
+	for rows.Next() {
+		var commID int64
+		var subCount uint64
+		err = rows.Scan(&commID, &subCount)
+		if (err != nil) {return err}
+		comm, ok := IDToCommunity.Get(commID)
+		if (!ok) {return fmt.Errorf("Can't find community [%d]", commID)}
+		comm.Subscount.Store(subCount)
+	}
 	return
 }
+
+func _loadreactions() (err error) {
+	rows, err := SQLGet("service/social.loadSQL#load reactions for posts", `
+	SELECT accID, postID, action FROM social_post_reaction;
+	`)
+	if (err != nil) {return err}
+	defer rows.Close()
+
+	var accID, PostID int64
+	var reaction ReactionType
+
+	for rows.Next() {
+		err = rows.Scan(&accID, &PostID, &reaction)
+		if (err != nil) {return err}
+		if (reaction >= ReactionLimit) {
+			return DynError{ErrInexistentReaction, reaction}
+		}
+
+		post, ok := IDToPost.Get(PostID)
+		if (!ok) {return DynError{ErrCantFindPost, PostID}}
+
+		ok = IDToAccount.Has(accID)
+		if (!ok) { return DynError{ErrCantFindAccount, accID} }
+
+		post.Reactions.Set(accID, reaction)
+		if (ReactionsInfo[reaction].MeansHappy) {
+			post.LikeCount.Add(1)
+		} else {
+			post.DislikeCount.Add(1)
+		}
+	}
+
+	rows, err = SQLGet("service/social.loadSQL#load reactions for comments", `
+	SELECT accID, commentID, action FROM social_comment_reaction;
+	`)
+	if (err != nil) {return err}
+	defer rows.Close()
+	var commentID int64
+
+	for rows.Next() {
+		err = rows.Scan(&accID, &commentID, &reaction)
+		if (err != nil) {return err}
+		if (reaction >= ReactionLimit) {
+			return DynError{ErrInexistentReaction, reaction}
+		}
+
+		comment, ok := IDToComment.Get(commentID)
+		if (!ok) {return DynError{ErrCantFindComment, commentID}}
+
+		ok = IDToAccount.Has(accID)
+		if (!ok) { return DynError{ErrCantFindAccount, accID} }
+
+		comment.Reactions.Set(accID, reaction)
+		if (ReactionsInfo[reaction].MeansHappy) {
+			comment.LikeCount.Add(1)
+		} else {
+			comment.DislikeCount.Add(1)
+		}
+	}
+	return
+}
+
+const (
+	ErrCantFindPost       = ConstError("Can't find post")
+	ErrCantFindComment    = ConstError("Can't find comment")
+	ErrCantFindAccount    = ConstError("Can't find account")
+	ErrInexistentReaction = ConstError("Inexistent reaction")
+)
+
+func loadSQL(db *sql.DB) (err error) {
+	err = _loadcomm()
+	if (err != nil) {return}
+	err = _loadposts()
+	if (err != nil) {return}
+	err = _loadcomments()
+	if (err != nil) {return}
+	err = _loadsubs()
+	if (err != nil) {return}
+	err = _loadreactions()
+	if (err != nil) {return}
+	for acc := range IDToAccount.IterValues() {
+		if (!UIDToSubs.Has(acc)) {
+			UIDToSubs.Set(acc, []*Community{})
+		}
+	}
+	return
+}
+
+var socialSQLTables = `
+
+CREATE TABLE IF NOT EXISTS social_community (
+	communityID INTEGER PRIMARY KEY AUTOINCREMENT,
+	creatorID INTEGER NOT NULL,
+	name TEXT NOT NULL,
+	description TEXT NOT NULL,
+	subcount INGETER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS social_sub (
+	subberID INTEGER NOT NULL,
+	communityID INTEGER NOT NULL,
+	UNIQUE(subberID, communityID),
+	FOREIGN KEY(subberID) REFERENCES accounts(id),
+	FOREIGN KEY(communityID) REFERENCES social_community(communityID)
+);
+
+CREATE TABLE IF NOT EXISTS social_post (
+	postID INTEGER PRIMARY KEY AUTOINCREMENT,
+	communityID INTEGER NOT NULL,
+	posterID INTEGER NOT NULL,
+	postText TEXT NOT NULL,
+	postTime DATETIME NOT NULL,
+	commentCount INTEGER NOT NULL DEFAULT 0,
+	FOREIGN KEY(posterID) REFERENCES accounts(id),
+	FOREIGN KEY(communityID) REFERENCES social_community(communityID)
+);
+
+CREATE TABLE IF NOT EXISTS social_comment (
+	commentID INTEGER PRIMARY KEY AUTOINCREMENT,
+	commenterID INTEGER NOT NULL,
+	commentText TEXT NOT NULL,
+	commentTime DATETIME NOT NULL,
+	postID UNSIGNED INTEGER NOT NULL,
+	parentCommentID INTEGER,
+	childrenCount INTEGER NOT NULL DEFAULT 0,
+	FOREIGN KEY(parentCommentID) REFERENCES social_comment(commentID),
+	FOREIGN KEY(commenterID) REFERENCES accounts(id),
+	FOREIGN KEY(postID) REFERENCES social_post(postID)
+);
+
+CREATE TABLE IF NOT EXISTS social_post_reaction (
+	postID INTEGER NOT NULL,
+	accID INTEGER NOT NULL,
+	action INTEGER NOT NULL,
+	CHECK( action > 0),
+	UNIQUE(postID, accID),
+	FOREIGN KEY(accID) REFERENCES accounts(id),
+	FOREIGN KEY(postID) REFERENCES social_post(commentID)
+);
+
+CREATE TABLE IF NOT EXISTS social_comment_reaction (
+	commentID INTEGER NOT NULL,
+	accID INTEGER NOT NULL,
+	action INTEGER NOT NULL,
+	CHECK( action > 0),
+	UNIQUE(commentID, accID),
+	FOREIGN KEY(accID) REFERENCES accounts(id),
+	FOREIGN KEY(commentID) REFERENCES social_comment(commentID)
+);
+`
 

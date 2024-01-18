@@ -47,7 +47,7 @@
 				<span class="react">
 					{{ range $i, $info := $.allreactions }}
 						{{ if ne $i 0 }}
-							{{ $info.HTML $userReaction $post.PostID }}
+							{{ $info.HTML $userReaction $post.PostID "post" }}
 						{{ end }}
 					{{ end }}
 				</span>

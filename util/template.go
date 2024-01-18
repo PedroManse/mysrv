@@ -19,6 +19,9 @@ type GOTMPlugin struct {
 	Plug Plugin
 }
 
+// TODO Config suffix, for generic instanciation of function,
+// allowing better usability than infomap
+
 /*
 
 Content Server/Renderer Creators

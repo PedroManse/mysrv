@@ -102,7 +102,8 @@ var ( // system pages
 )
 
 func main() {
-	InitSQL("sqlite3.db")
+	e := InitSQL("sqlite3.db")
+	if (e != nil) {panic(e)}
 	InitAssoc()
 	service.DebugSocial()
 
@@ -142,7 +143,5 @@ func main() {
 	http.Handle("/social/community/create", service.CreateCommunityEndpoint)
 
 	FLog.Printf(FLOG_INFO, "Running")
-	FLog.Printf(FLOG_ERROR|FLOG_INFO, "%v", FLog.Areas)
-	FLog.Printf(FLOG_ERROR|FLOG_INFO, "%v", FLog.Areas)
 	panic(http.ListenAndServe("0.0.0.0:8080", nil))
 }

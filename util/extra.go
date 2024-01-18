@@ -4,6 +4,7 @@ import (
 	"hash/fnv"
 	"sync"
 	"strings"
+	"fmt"
 )
 
 type HashResult = uint32
@@ -255,8 +256,26 @@ func RemoveSpace(in string) (out string) {
 	return strings.TrimSpace(in)
 }
 
-type constError string
-func(err constError) Error() string {
+type ConstError string
+func (err ConstError) Error() string {
 	return string(err)
+}
+
+func (err ConstError) Is(target error) bool {
+	return err == target
+}
+
+type DynError struct {
+	Format error
+	Value any
+}
+
+func (err DynError) Error() string {
+	return fmt.Sprintf("%s: %v", err.Format.Error(), err.Value)
+}
+
+func (err DynError) Is(target error) bool {
+	ts := target.Error()
+	return ts == err.Format.Error()
 }
 

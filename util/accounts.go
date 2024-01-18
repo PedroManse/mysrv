@@ -81,7 +81,7 @@ func NewAccount(email, name, password string) *Account {
 
 	hash := Hash(password)
 
-	a, err := db.Exec(
+	a, err := SQLDo("util/account.NewAccount",
 		`INSERT INTO accounts (email, name, hash) VALUES (?, ?, ?);`,
 		email, name, hash,
 	)
@@ -102,7 +102,8 @@ func NewAccount(email, name, password string) *Account {
 }
 
 func loadAccounts(db *sql.DB) error {
-	rows, err := db.Query("SELECT id, email, name, hash FROM accounts")
+	rows, err := SQLGet("util/account.loadAccounts",
+	`SELECT id, email, name, hash FROM accounts`)
 	if err != nil { return err }
 
 	for rows.Next() {

@@ -53,8 +53,8 @@ type Flogger struct {
 
 const (
 	ansi_CLEAR = "\x1b[0m"
-	ErrNoEnabledAreas = constError("Flogger.Printf no selected areas")
-	ErrNoAreas = constError("Flogger.Printf all selected areas disabled")
+	ErrNoEnabledAreas = ConstError("Flogger.Printf no selected areas")
+	ErrNoAreas = ConstError("Flogger.Printf all selected areas disabled")
 )
 
 func NewLogger(out io.Writer) *Flogger {

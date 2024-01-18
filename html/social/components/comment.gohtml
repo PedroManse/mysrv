@@ -14,7 +14,7 @@
 		</span>
 		<span class="react">
 			{{ range $i, $info := $.allreactions }}
-				{{ $info.HTMLComment $userReaction $.comment.CommentID }}
+				{{ $info.HTML $userReaction $.comment.CommentID "comment" }}
 			{{ end }}
 		</span>
 	</span>
